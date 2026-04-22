@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="px-4 py-5 my-5 text-center">
+    <h1 class="display-1 fw-bold text-primary">Exam.Teacher</h1>
+    <div class="col-lg-6 mx-auto">
+        <p class="lead mb-4">
+            Платформа для подготовки к ЕГЭ. Создавай тесты, проходи задания и отслеживай прогресс.
+        </p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            <a href="/subjects" class="btn btn-primary btn-lg px-4 gap-3">Начать учиться</a>
+        </div>
+    </div>
+</div>
+
+<div class="container px-4 py-5">
+    <h2 class="pb-2 border-bottom">Возможности платформы</h2>
+    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+        <div class="col d-flex gap-3">
+            <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                <svg class="bi" width="30" height="24"><use xlink:href="#collection"/></svg>
+            </div>
+            <div>
+                <h3 class="fs-2">Задания</h3>
+                <p>Разные типы заданий: выбор ответа, ввод текста, загрузка файлов с решением.</p>
+            </div>
+        </div>
+        <div class="col d-flex gap-3">
+            <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                <svg class="bi" width="30" height="24"><use xlink:href="#collection"/></svg>
+            </div>
+            <div>
+                <h3 class="fs-2">Тесты</h3>
+                <p>Объединяй задания в тесты и назначай их ученикам.</p>
+            </div>
+        </div>
+        <div class="col d-flex gap-3">
+            <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3">
+                <svg class="bi" width="30" height="24"><use xlink:href="#collection"/></svg>
+            </div>
+            <div>
+                <h3 class="fs-2">Статистика</h3>
+                <p>Отслеживай прогресс и смотри результаты.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

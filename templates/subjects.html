@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Все предметы</h1>
+    <div class="list-group mt-3">
+        {% for subject in subjects %}
+            <a href="/subjects/{{ subject[0] }}" class="list-group-item list-group-item-action">
+                {{ subject[1] }}
+                <small class="text-muted d-block">{{ subject[2] }}</small>
+            </a>
+        {% endfor %}
+    </div>
+{% endblock %}
