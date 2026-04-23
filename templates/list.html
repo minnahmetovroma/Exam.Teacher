@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>{{title}}</h1>
+    <h1>{{ title }}</h1>
     <div class="list-group mt-3">
         {% for item in items %}
-            <a href="{{url_prefix}}/{{ item[0] }}" class="list-group-item list-group-item-action">
+            <a href="/{{ url }}/{{ item[0] }}" class="list-group-item list-group-item-action">
                 {{ item[1] }}
-                <small class="text-muted d-block">{{ item[2] }}</small>
+                {% if item[2] %}
+                    <small class="text-muted d-block">{{ item[2] }}</small>
+                {% endif %}
             </a>
         {% endfor %}
     </div>

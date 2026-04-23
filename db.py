@@ -64,7 +64,7 @@ def get_tasks_by_topic_id(topic_id):
     connection = get_connection()
     cursor = connection.cursor()
 
-    cursor.execute("SELECT title FROM tasks WHERE topic_id = %s", (topic_id,))
+    cursor.execute("SELECT id, title FROM tasks WHERE topic_id = %s", (topic_id,))
 
     tasks = cursor.fetchall()
 
