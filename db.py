@@ -99,4 +99,33 @@ def get_topic_by_id(topic_id):
 
     return topic
 
+def is_in_users(data: dict[str: str]) -> bool:
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE surname = %s AND first_name = %s AND patronymic = %s AND email = %s",
+                   (data["surname"], data["name"], data["patronymic"], data["email"]))
+
+    answer = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+
+    return True if answer else False
+
+def add_new_user(data):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("INSERT INTO users (surname, first_name, patronymic, email, password_hash, is_teacher) VALUES"
+                   "(%s, %s, %s, %s, %s, %s)",
+                   (data["surname"], data["name"], data["patronymic"], data["email"], data["password_hash"], data["is_teacher"]))
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+
 # def get_subject_id_by_subject_name(subject_name):

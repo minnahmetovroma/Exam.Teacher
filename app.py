@@ -1,5 +1,6 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -8,7 +9,7 @@ def hello_exam():
     return render_template('index.html')
 
 
-@app.route('/subjects')
+@app.route('/subjects/')
 def subjects_list():
     all_subjects = db.get_all_subjects()
     return render_template('list.html',
@@ -65,6 +66,40 @@ def tasks_list(subject_id, topic_id):
                                items=[],
                                url=f"subjects/{subject_id}"
                                )
+
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.form.to_dict()
+
+    return render_template('login.html', title='')
+
+
+@app.route('/register/', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        data = request.form.to_dict()
+        if data['password'] != data['password_repeat']:
+            return render_template('reqister.html', title='Пароли не совпадают')
+
+        if db.is_in_users(data):
+            return render_template('reqister.html', title='Такой пользователь уже создан')
+
+
+        data['password_hash'] = generate_password_hash(data['password'])
+        if data["is_teacher"] == 'yes':
+            data["is_teacher"] = 1
+        else:
+            data["is_teacher"] = 0
+
+
+        del data['password'], data['password_repeat']
+        db.add_new_user(data)
+
+
+
+    return render_template('register.html', title='')
+
 
 
 
