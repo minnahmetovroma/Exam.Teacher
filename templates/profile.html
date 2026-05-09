@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="px-4 py-5 my-5 text-center">
+    <h1 class="display-4 fw-bold text-primary">Личный кабинет</h1>
+    <div class="col-lg-6 mx-auto">
+        <p class="lead mb-4">
+            {% if is_teacher %}
+                Добро пожаловать, <strong>{{ first_name }} {{patronymic}}</strong>!
+            {% else %}
+                Добро пожаловать, <strong>{{ surname }} {{ first_name }}</strong>!
+            {% endif %}
+        </p>
+        <p class="text-muted">
+            {% if is_teacher %}
+                Вы зарегистрированы как <span class="badge bg-primary">учитель</span>
+            {% else %}
+                Вы зарегистрированы как <span class="badge bg-success">ученик</span>
+            {% endif %}
+        </p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+            <a href="/subjects" class="btn btn-primary btn-lg px-4">К предметам</a>
+            <a href="/logout" class="btn btn-outline-secondary btn-lg px-4">Выйти</a>
+        </div>
+    </div>
+</div>
+
+<!--<div class="container px-4 py-5">-->
+<!--    <div class="row g-4 py-5 row-cols-1 row-cols-lg-2">-->
+<!--        <div class="col d-flex gap-3">-->
+<!--            <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-4 rounded-3 p-3">-->
+<!--                📚-->
+<!--            </div>-->
+<!--            <div>-->
+<!--                <h3 class="fs-2">Мои предметы</h3>-->
+<!--                <p>Просматривайте доступные предметы и темы для подготовки.</p>-->
+<!--                <a href="/subjects/" class="btn btn-sm btn-outline-primary">Перейти</a>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="col d-flex gap-3">-->
+<!--            <div class="feature-icon-small d-inline-flex align-items-center justify-content-center text-bg-success bg-gradient fs-4 rounded-3 p-3">-->
+<!--                📊-->
+<!--            </div>-->
+<!--            <div>-->
+<!--                <h3 class="fs-2">Статистика</h3>-->
+<!--                <p>Отслеживайте свой прогресс и результаты по заданиям.</p>-->
+<!--                <a href="#" class="btn btn-sm btn-outline-success">Смотреть</a>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--</div>-->
+{% endblock %}

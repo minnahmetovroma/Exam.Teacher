@@ -23,7 +23,7 @@ def get_connection():
 
 def get_all_subjects():
     connection = get_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM subjects")
 
@@ -36,11 +36,11 @@ def get_all_subjects():
 
 def get_subject_by_id(subject_id: int):
     connection = get_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
 
     cursor.execute("SELECT name, description FROM subjects WHERE id = %s", (subject_id, ))
 
-    subject = cursor.fetchall()
+    subject = cursor.fetchone()
 
     cursor.close()
     connection.close()
@@ -49,7 +49,7 @@ def get_subject_by_id(subject_id: int):
 
 def get_topics_by_subject_id(subject_id):
     connection = get_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
 
     cursor.execute("SELECT id, name FROM topics WHERE subject_id = %s", (subject_id,))
 
@@ -62,9 +62,9 @@ def get_topics_by_subject_id(subject_id):
 
 def get_tasks_by_topic_id(topic_id):
     connection = get_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
 
-    cursor.execute("SELECT id, title FROM tasks WHERE topic_id = %s", (topic_id,))
+    cursor.execute("SELECT id, name FROM tasks WHERE topic_id = %s", (topic_id,))
 
     tasks = cursor.fetchall()
 
@@ -79,7 +79,7 @@ def get_subject_by_topic_id(topic_id):
 
     cursor.execute("SELECT subject_id FROM topics WHERE id = %s", (topic_id, ))
 
-    subject_id = cursor.fetchall()
+    subject_id = cursor.fetchone()
 
     cursor.close()
     connection.close()
@@ -88,11 +88,11 @@ def get_subject_by_topic_id(topic_id):
 
 def get_topic_by_id(topic_id):
     connection = get_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
 
     cursor.execute("SELECT name FROM topics WHERE id = %s", (topic_id,))
 
-    topic = cursor.fetchall()
+    topic = cursor.fetchone()
 
     cursor.close()
     connection.close()
@@ -117,6 +117,7 @@ def is_in_users(data: dict[str: str]) -> bool:
 def add_new_user(data):
     connection = get_connection()
     cursor = connection.cursor()
+    # print(data)
 
     cursor.execute("INSERT INTO users (surname, first_name, patronymic, email, password_hash, is_teacher) VALUES"
                    "(%s, %s, %s, %s, %s, %s)",
@@ -126,6 +127,32 @@ def add_new_user(data):
 
     cursor.close()
     connection.close()
+
+def get_user_by_email(email: str):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE email = %s",
+                   (email,))
+
+    answer = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+    return answer
+
+def get_user_by_id(id: int):
+    connection = get_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE id = %s LIMIT 1",
+                   (id,))
+
+    answer = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+    return answer
 
 
 # def get_subject_id_by_subject_name(subject_name):
