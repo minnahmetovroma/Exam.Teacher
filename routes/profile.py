@@ -1,9 +1,19 @@
-from flask import render_template, Blueprint
-from flask_login import login_required, current_user
+from fastapi import APIRouter, Request, Depends
+from fastapi.templating import Jinja2Templates
+from dependencies import get_current_user
 
-profile_bp = Blueprint('profile', __name__)
+profile_route = APIRouter()
 
-@profile_bp.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html', **current_user._user)
+templates = Jinja2Templates(directory='templates')
+
+@profile_route.get('/profile/')
+async def register_get(request: Request, user=Depends(get_current_user)):
+    context = {
+        "request": request,
+        **user
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name='profile.html',
+        context=context
+    )

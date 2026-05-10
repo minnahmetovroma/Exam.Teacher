@@ -2,14 +2,43 @@
 
 {% block content %}
     <h1>{{ title }}</h1>
+
     <div class="list-group mt-3">
         {% for item in items %}
-            <a href="/{{ url }}/{{ item['id'] }}" class="list-group-item list-group-item-action">
+            <a href="/{{ url }}/{{ item['id'] }}/" class="list-group-item list-group-item-action">
                 {{ item['name'] }}
                 {% if item['description'] %}
                     <small class="text-muted d-block">{{ item['description'] }}</small>
                 {% endif %}
             </a>
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                В этом разделе пока ничего нет.
+            </div>
         {% endfor %}
     </div>
+
+    {% if user and user.is_teacher %}
+        <div class="card mt-4 mb-5">
+            <div class="card-header font-weight-bold">
+                ➕ Добавить новую запись
+            </div>
+            <div class="card-body">
+                <form action="/{{ url }}/" method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Название</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            Описание <span class="text-muted fw-normal" style="font-size: 0.85em;">(необязательно)</span>
+                        </label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Добавить</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
 {% endblock %}

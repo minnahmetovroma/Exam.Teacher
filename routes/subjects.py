@@ -1,66 +1,115 @@
-from flask import render_template, Blueprint
+from fastapi import APIRouter, Request, Depends, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 import db
-from flask_login import login_required
 
-subjects_bp = Blueprint('subjects', __name__)
+from dependencies import get_current_user
 
-@subjects_bp.route('/subjects')
-@login_required
-def subjects_list():
-    all_subjects = db.get_all_subjects()
-    return render_template('list.html',
-                           title="Все предметы",
-                           items=all_subjects,
-                           url=f"subjects"
-                           )
+subjects_route = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
-@subjects_bp.route('/subjects/<int:subject_id>')
-@login_required
-def topics_list(subject_id):
-    subject = db.get_subject_by_id(subject_id)
-    topics = db.get_topics_by_subject_id(subject_id)
+@subjects_route.get('/subjects/')
+async def subjects_get(request: Request, user: dict = Depends(get_current_user)):
+    all_subjects = await db.get_all_subjects()
+    return templates.TemplateResponse(
+        request=request,
+        name='list.html',
+        context={
+            "title": "Все предметы",
+            "items": all_subjects,
+            "url": "subjects",
+            "user": user
+        }
+    )
+
+@subjects_route.post('/subjects/')
+async def create_subjects(
+        request: Request,
+        user: dict = Depends(get_current_user),
+        name = Form(...),
+        description = Form(None),
+):
+    await db.add_new_subject(name=name, description=description, user_id=user['id'])
+    return RedirectResponse(url="/subjects/", status_code=303)
+
+@subjects_route.get('/subjects/{subject_id}/')
+async def topics_get(request: Request, subject_id: int, user: dict = Depends(get_current_user)):
+    subject = await db.get_subject_by_id(subject_id)
+    topics = await db.get_topics_by_subject_id(subject_id)
     if subject:
-        if topics:
-            return render_template('list.html',
-                                   title=f"{subject['name']}",
-                                   items=topics,
-                                   url=f"subjects/{subject_id}"
-                                   )
-        else:
-            return render_template('list.html',
-                                   title=f"{subject['name']}",
-                                   items=[{'name': "Тем пока нет",}],
-                                   url=f"subjects/{subject_id}"
-                                   )
-
+        items = topics if topics else [{'name': "Тем пока нет"}]
+        return templates.TemplateResponse(
+            request=request,
+            name="list.html",
+            context={
+                "title": f"{subject['name']}",
+                "items": items,
+                "url": f"subjects/{subject_id}",
+                "user": user
+            }
+        )
     else:
-        return render_template('list.html',
-                               title=f"Такого предмета нет",
-                               items={},
-                               url=f"subjects/{subject_id}"
-                               )
+        return templates.TemplateResponse(
+            request=request,
+            name="list.html",
+            context={
+                "title": "Такого предмета нет",
+                "items": {},
+                "url": f"subjects/{subject_id}",
+                "user": user
+            }
+        )
 
-@subjects_bp.route('/subjects/<int:subject_id>/<int:topic_id>')
-@login_required
-def tasks_list(subject_id, topic_id):
-    topic_name = db.get_topic_by_id(topic_id)['name']
-    tasks = db.get_tasks_by_topic_id(topic_id)
-    if topic_name:
-        if tasks:
-            return render_template('list.html',
-                                   title=f"{topic_name}",
-                                   items=tasks,
-                                   url=f"subjects/{subject_id}/{topic_id}"
-                                   )
-        else:
-            return render_template('list.html',
-                                   title=f"{topic_name}",
-                                   items=[{'name': "Задач пока нет",}],
-                                   url=f"subjects/{subject_id}/{topic_id}"
-                                   )
+@subjects_route.post('/subjects/{subject_id}/')
+async def create_topic(
+        request: Request,
+        subject_id: int,
+        user: dict = Depends(get_current_user),
+        name=Form(...),
+        description=Form(None),
+):
+    await db.add_new_topic(
+        name=name,
+        description=description,
+        user_id=user['id'],
+        subject_id=subject_id
+    )
+
+    return RedirectResponse(url=f'/subjects/{subject_id}/', status_code=303)
+
+
+@subjects_route.get('/subjects/{subject_id}/{topic_id}/')
+async def tasks_list(
+        request: Request,
+        subject_id: int,
+        topic_id: int,
+        user: dict = Depends(get_current_user)
+):
+    topic = await db.get_topic_by_id(topic_id)
+
+    if topic:
+        topic_name = topic['name']
+        tasks = await db.get_tasks_by_topic_id(topic_id)
+
+        items = tasks if tasks else [{'name': "Задач пока нет"}]
+        return templates.TemplateResponse(
+            request=request,
+            name="tasks.html",
+            context={
+                "title": f"{topic_name}",
+                "items": items,
+                "url": f"subjects/{subject_id}/{topic_id}",
+                "user": user
+            }
+        )
     else:
-        return render_template('list.html',
-                               title=f"Такой темы нет",
-                               items=[],
-                               url=f"subjects/{subject_id}"
-                               )
+        return templates.TemplateResponse(
+            request=request,
+            name="list.html",
+            context={
+                "title": "Такой темы нет",
+                "items": [],
+                "url": f"subjects/{subject_id}",
+                "user": user
+            }
+        )

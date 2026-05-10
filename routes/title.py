@@ -1,7 +1,15 @@
-from flask import render_template, Blueprint
 
-title_bp = Blueprint('title', __name__)
+from fastapi import APIRouter, Request
+from fastapi.templating import Jinja2Templates
 
-@title_bp.route('/')
-def title_list():
-    return render_template('index.html')
+title_route = APIRouter()
+
+templates = Jinja2Templates(directory='templates')
+
+@title_route.get('/')
+async def title_list(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"title": "Главная страница"}
+    )

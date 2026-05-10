@@ -1,91 +1,86 @@
-from flask import render_template, request, redirect, url_for, flash, Blueprint
+from fastapi import APIRouter, Request, Form, status
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 import db
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin, login_user, current_user, login_required, logout_user
 
-auth_bp = Blueprint('auth', __name__)
-
-class User(UserMixin):
-
-    def fromDB(self, user_id):
-        self._user = db.get_user_by_id(int(user_id))
-        return self
-
-    def create(self, user):
-        self._user = user
-        return self
-
-    def is_authenticated(self):
-        return True
-    def is_active(self):
-        return True
-    def is_anonymous(self):
-        return False
-    def get_id(self):
-        return str(self._user['id'])
+auth_route = APIRouter()
+templates = Jinja2Templates(directory='templates')
 
 
-@auth_bp.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('profile.profile'))
+@auth_route.get('/login/')
+async def login_get(request: Request, title: str = '', color: str = 'red'):
+    return templates.TemplateResponse(
+        request=request,
+        name='login.html',
+        context={'title': title, 'color': color}
+    )
 
-    title = request.args.get('title', '')
-    color = request.args.get('color', 'red')
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+@auth_route.post('/login/')
+async def login_post(
+        request: Request,
+        email: str = Form(...),
+        password: str = Form(...)):
+    users = await db.get_user_by_email(email)
 
-        users = db.get_user_by_email(email)
+    if not users:
+        return await login_get(
+            request=request,
+            name="login.html",
+            context={"title": "Такого пользователя нет", "color": "red"}
+        )
 
-        if not users:
-            return render_template('login.html', title='Такого пользователя нет', color=color)
-        for user in users:
-            if check_password_hash(user['password_hash'], password):
-                user_login = User().create(user)
-                login_user(user_login, remember=True)
-                return redirect(url_for('title.title_list'))
+    for user in users:
+        if check_password_hash(user['password_hash'], password):
+            redirect = RedirectResponse(url='/', status_code=status.HTTP_303_SEE_OTHER)
+            redirect.set_cookie(key='user_id', value=user['id'], httponly=True)
+            return redirect
+
+    return await login_get(
+        request=request,
+        name="login.html",
+        context={"title": "Неверный пароль", "color": "red"}
+    )
+
+@auth_route.get('/register/')
+async def register_get(request: Request, title='', color='red'):
+    return templates.TemplateResponse(
+        request=request,
+        name='register.html',
+        context={'title': title, 'color': color}
+    )
+
+@auth_route.post('/register/')
+async def register_post(request: Request):
+    form = await request.form()
+    data = dict(form)
+
+    if data['password'] != data['password_repeat']:
+        return await register_get(request=request, title='Пароли не совпадают', color='red')
+    if db.is_in_users(data):
+        return await register_get(request=request, title='Такой пользователь уже создан', color='red')
+    data['password_hash'] = generate_password_hash(data['password'])
+
+    if data["is_teacher"] == 'yes':
+        data["is_teacher"] = 1
+    else:
+        data["is_teacher"] = 0
+
+    data.pop('password', None)
+    data.pop('password_repeat', None)
+
+    await db.add_new_user(data)
+
+    return RedirectResponse(
+        url="/login/?title=Вы зарегистрировались, войдите&color=green",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
-        return render_template('login.html', title='Неверный пароль', color=color)
-
-
-
-
-
-    return render_template('login.html', title=title, color = color)
-
-
-@auth_bp.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        data = request.form.to_dict()
-        if data['password'] != data['password_repeat']:
-            return render_template('register.html', title='Пароли не совпадают', color='red')
-
-        if db.is_in_users(data):
-            return render_template('register.html', title='Такой пользователь уже создан', color='red')
-
-
-        data['password_hash'] = generate_password_hash(data['password'])
-        if data["is_teacher"] == 'yes':
-            data["is_teacher"] = 1
-        else:
-            data["is_teacher"] = 0
-
-
-        del data['password'], data['password_repeat']
-        db.add_new_user(data)
-
-        return redirect(url_for('auth.login', title="Вы зарегистрировались, войдите", color='green'))
-
-
-
-    return render_template('register.html', title='')
-
-@auth_bp.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash("You have been logged out.")
-    return redirect(url_for('auth.login'))
+@auth_route.get('/logout/')
+async def logout():
+    # Создаем ответ с перенаправлением на логин
+    redirect = RedirectResponse(url="/login/", status_code=status.HTTP_303_SEE_OTHER)
+    # Удаляем куку (это заменяет logout_user)
+    redirect.delete_cookie("user_id")
+    return RedirectResponse(url='/login/', status_code=status.HTTP_303_SEE_OTHER)

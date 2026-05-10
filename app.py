@@ -1,26 +1,22 @@
-from flask import Flask
-from flask_login import LoginManager
-from routes.title import title_bp
-from routes.profile import profile_bp
-from routes.auth import auth_bp, User
-from routes.subjects import subjects_bp
+
+from routes.title import title_route
+from routes.profile import profile_route
+from routes.auth import auth_route
+from routes.subjects import subjects_route
+
+from fastapi import FastAPI
+import uvicorn
 
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = '3f8bac792189715227c86a13492ee976e4fe757c8b7aa5926b715c15e1416717'
+app = FastAPI(title="Exam.Teacher")
 
-login_manager = LoginManager(app)
-@login_manager.user_loader
-def load_user(user_id):
-    user = User().fromDB(user_id)
-    if user._user:
-        return user
-    return None
+app.include_router(title_route)
+app.include_router(profile_route)
+app.include_router(auth_route)
+app.include_router(subjects_route)
 
-app.register_blueprint(title_bp)
-app.register_blueprint(profile_bp)
-app.register_blueprint(auth_bp)
-app.register_blueprint(subjects_bp)
 
 if __name__ == '__main__':
-    app.run()
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+
+
