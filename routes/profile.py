@@ -7,7 +7,7 @@ profile_route = APIRouter()
 templates = Jinja2Templates(directory='templates')
 
 @profile_route.get('/profile/')
-async def register_get(request: Request, user=Depends(get_current_user)):
+async def profile_get(request: Request, user=Depends(get_current_user)):
     context = {
         "request": request,
         **user

@@ -18,7 +18,7 @@
         {% endfor %}
     </div>
 
-    {% if user and user.is_teacher %}
+    {% if user and user.is_teacher and can_edit %}
         <div class="card mt-4 mb-5">
             <div class="card-header font-weight-bold">
                 ➕ Добавить новую запись
@@ -29,12 +29,21 @@
                         <label for="name" class="form-label">Название</label>
                         <input type="text" class="form-control" id="name" name="name" required>
                     </div>
+
                     <div class="mb-3">
                         <label for="description" class="form-label">
                             Описание <span class="text-muted fw-normal" style="font-size: 0.85em;">(необязательно)</span>
                         </label>
                         <textarea class="form-control" id="description" name="description" rows="2"></textarea>
                     </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_private" name="is_private" checked>
+                        <label class="form-check-label" for="is_private">
+                            Сделать приватным <span class="text-muted fw-normal" style="font-size: 0.85em;">(будет видно только вам и вашим ученикам)</span>
+                        </label>
+                    </div>
+
                     <button type="submit" class="btn btn-success">Добавить</button>
                 </form>
             </div>

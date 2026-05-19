@@ -20,14 +20,13 @@ async def login_get(request: Request, title: str = '', color: str = 'red'):
 async def login_post(
         request: Request,
         email: str = Form(...),
-        password: str = Form(...)):
+        password: str = Form(...)
+):
     users = await db.get_user_by_email(email)
 
     if not users:
-        return await login_get(
-            request=request,
-            name="login.html",
-            context={"title": "Такого пользователя нет", "color": "red"}
+        return RedirectResponse(
+            url='/login/?title=Такого пользователя нет', status_code=status.HTTP_303_SEE_OTHER,
         )
 
     for user in users:
@@ -36,11 +35,9 @@ async def login_post(
             redirect.set_cookie(key='user_id', value=user['id'], httponly=True)
             return redirect
 
-    return await login_get(
-        request=request,
-        name="login.html",
-        context={"title": "Неверный пароль", "color": "red"}
-    )
+    return RedirectResponse(
+            url='/login/?title=Неверный пароль', status_code=status.HTTP_303_SEE_OTHER,
+        )
 
 @auth_route.get('/register/')
 async def register_get(request: Request, title='', color='red'):
@@ -56,9 +53,15 @@ async def register_post(request: Request):
     data = dict(form)
 
     if data['password'] != data['password_repeat']:
-        return await register_get(request=request, title='Пароли не совпадают', color='red')
+        return RedirectResponse(
+            url='/register/?title=Пароли не совпадают',
+            status_code=status.HTTP_303_SEE_OTHER
+        )
     if db.is_in_users(data):
-        return await register_get(request=request, title='Такой пользователь уже создан', color='red')
+        return RedirectResponse(
+            url='/register/?title=Такой пользователь уже создан',
+            status_code=status.HTTP_303_SEE_OTHER
+        )
     data['password_hash'] = generate_password_hash(data['password'])
 
     if data["is_teacher"] == 'yes':
@@ -79,8 +82,6 @@ async def register_post(request: Request):
 
 @auth_route.get('/logout/')
 async def logout():
-    # Создаем ответ с перенаправлением на логин
     redirect = RedirectResponse(url="/login/", status_code=status.HTTP_303_SEE_OTHER)
-    # Удаляем куку (это заменяет logout_user)
     redirect.delete_cookie("user_id")
-    return RedirectResponse(url='/login/', status_code=status.HTTP_303_SEE_OTHER)
+    return redirect

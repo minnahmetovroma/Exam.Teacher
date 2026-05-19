@@ -1,15 +1,185 @@
 {% extends "base.html" %}
 
 {% block content %}
+
     <h1>{{ title }}</h1>
+
     <div class="list-group mt-3">
         {% for item in items %}
-            <a href="/{{ url }}/{{ item['id'] }}" class="list-group-item list-group-item-action">
-                {{ item['name'] }}
+
+            <button type="button" class="list-group-item list-group-item-action text-start"
+                    data-bs-toggle="modal" data-bs-target="#taskModal{{ item['id'] }}">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ item['name'] }}</h5>
+                    {% if item['is_public'] == 0 %}
+                        <span class="badge bg-warning text-dark">Черновик</span>
+                    {% endif %}
+                </div>
                 {% if item['description'] %}
                     <small class="text-muted d-block">{{ item['description'] }}</small>
                 {% endif %}
-            </a>
+            </button>
+
+            <div class="modal fade" id="taskModal{{ item['id'] }}" tabindex="-1" aria-labelledby="modalLabel{{ item['id'] }}" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+
+                        <div class="modal-header bg-light">
+                            <h5 class="modal-title" id="modalLabel{{ item['id'] }}">
+                                📝 {{ item['name'] }}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                        </div>
+
+                        <div class="modal-body">
+                            {% if item['description'] %}
+                                <div class="mb-4 p-3 bg-white border rounded">
+                                    <strong>Инструкция:</strong><br>
+                                    {{ item['description'] }}
+                                </div>
+                            {% endif %}
+
+                            <div class="alert alert-secondary text-center" role="alert">
+                                🚧 <em>Здесь скоро появится интерфейс для решения задания...</em>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                            <button type="button" class="btn btn-primary">Отправить на проверку</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                В этом разделе пока ничего нет.
+            </div>
         {% endfor %}
     </div>
+
+    {% if user and user.is_teacher and can_edit %}
+        <div class="card mt-4 mb-5 border-success">
+            <div class="card-header bg-success text-white font-weight-bold">
+                ➕ Создать новое задание
+            </div>
+            <div class="card-body">
+                <form action="/{{ url }}/" method="POST" enctype="multipart/form-data">
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Название задания</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="Например: Итоговый тест по теме" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Инструкция/Описание</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="question_type" class="form-label">Тип задания</label>
+                            <select class="form-select" id="question_type" name="question_type" onchange="toggleSettings()" required>
+                                <option value="choice" selected>Выбор ответа (Тест)</option>
+                                <option value="text">Свободный текст</option>
+                                <option value="file">Загрузка файла</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" id="is_private" name="is_private" checked>
+                                <label class="form-check-label" for="is_private">
+                                    Скрыть от учеников (черновик)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 mb-3 bg-light border rounded">
+
+                        <div id="block_choice">
+                            <label class="form-label fw-bold">Варианты ответа (отметьте правильные слева)</label>
+                            <div id="options_list">
+                                </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOption()">
+                                + Добавить вариант
+                            </button>
+                        </div>
+
+                        <div id="block_text" style="display: none;">
+                            <label for="correct_text" class="form-label fw-bold">Правильный ответ</label>
+                            <input type="text" class="form-control" id="correct_text" name="correct_text" placeholder="Введите эталонный ответ">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="is_case_sensitive" name="is_case_sensitive" value="1">
+                                <label class="form-check-label text-muted small" for="is_case_sensitive">
+                                    Учитывать регистр (строчные/заглавные буквы)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="block_file" style="display: none;">
+                            <label for="task_files" class="form-label fw-bold">Прикрепить материалы к заданию</label>
+                            <input class="form-control" type="file" id="task_files" name="task_files" multiple>
+                            <div class="form-text small">Ученик тоже должен будет загрузить файл в качестве ответа.</div>
+                        </div>
+
+                    </div>
+
+                    <div class="mb-3 p-3 bg-light border rounded">
+                        <label for="task_attachments" class="form-label fw-bold">📎 Прикрепить материалы (Картинки, PDF, Текст)</label>
+                        <input class="form-control" type="file" id="task_attachments" name="task_attachments" multiple accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx">
+                    </div>
+
+                    <button type="submit" class="btn btn-success mt-3">Сохранить задание</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <script>
+        let optionIndex = 0;
+
+        // Функция для переключения видимости блоков
+        function toggleSettings() {
+            const type = document.getElementById('question_type').value;
+
+            document.getElementById('block_choice').style.display = (type === 'choice') ? 'block' : 'none';
+            document.getElementById('block_text').style.display = (type === 'text') ? 'block' : 'none';
+            document.getElementById('block_file').style.display = (type === 'file') ? 'block' : 'none';
+
+            // Отключаем атрибут required для скрытых полей, чтобы браузер не блокировал отправку формы
+            const choiceInputs = document.querySelectorAll('input[name="options"]');
+            choiceInputs.forEach(input => input.required = (type === 'choice'));
+        }
+
+        // Функция для добавления нового варианта ответа (Telegram-style)
+        function addOption() {
+            const container = document.getElementById('options_list');
+            const div = document.createElement('div');
+            div.className = 'input-group mb-2';
+
+            // value=${optionIndex} гарантирует, что мы будем знать, какой именно ответ отмечен правильным
+            div.innerHTML = `
+                <div class="input-group-text bg-white" title="Отметить как правильный">
+                    <input class="form-check-input mt-0" type="checkbox" name="correct_options" value="${optionIndex}">
+                </div>
+                <input type="text" class="form-control" name="options" placeholder="Текст варианта" required>
+                <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()" title="Удалить">
+                    <i class="bi bi-trash">✖</i>
+                </button>
+            `;
+            container.appendChild(div);
+            optionIndex++;
+        }
+
+        // Добавляем два пустых варианта при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            addOption();
+            addOption();
+            toggleSettings();
+        });
+    </script>
 {% endblock %}
