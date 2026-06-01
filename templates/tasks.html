@@ -7,51 +7,304 @@
     <div class="list-group mt-3">
         {% for item in items %}
 
-            <button type="button" class="list-group-item list-group-item-action text-start"
-                    data-bs-toggle="modal" data-bs-target="#taskModal{{ item['id'] }}">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ item['name'] }}</h5>
-                    {% if item['is_public'] == 0 %}
-                        <span class="badge bg-warning text-dark">Черновик</span>
-                    {% endif %}
+            <div id="task-wrapper-{{ item['id'] }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-0">
+
+                <div class="p-3 flex-grow-1" data-bs-toggle="modal" data-bs-target="#taskModal{{ item['id'] }}" style="cursor: pointer;">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1" id="task-name-text-{{ item['id'] }}">
+                            {% if item['question_type'] == 'file' and item.get('is_material') %}📄{% endif %}
+                            {{ item['name'] }}
+                        </h5>
+
+                        <span id="task-badge-container-{{ item['id'] }}">
+                            {% if can_edit %}
+                                {% if item['is_public'] == 0 %}
+                                    <span class="badge bg-warning text-dark">Приватно</span>
+                                {% else %}
+                                    <span class="badge bg-success">Публично</span>
+                                {% endif %}
+                            {% endif %}
+                            {% if not can_edit and item['id'] in attempts and not item.get('is_material') %}
+                                {% if attempts[item['id']] == 1 %}
+                                    <span class="badge bg-success ms-1">✓ Выполнено</span>
+                                {% elif attempts[item['id']] == 0 %}
+                                    <span class="badge bg-danger ms-1">✗ Неверно</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark ms-1">⏳ На проверке</span>
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <small class="text-muted d-block mt-1" id="task-desc-text-{{ item['id'] }}">
+                        {{ item['description'] if item['description'] else '' }}
+                    </small>
                 </div>
-                {% if item['description'] %}
-                    <small class="text-muted d-block">{{ item['description'] }}</small>
+
+                {% if user and user.is_teacher and can_edit %}
+                    <div class="pe-3 d-flex gap-1">
+                        <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
+                                onclick="openManageModal('/subjects/{{ url }}/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
+                            ⚙️
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editTaskModal{{ item['id'] }}" title="Редактировать задание">
+                            🖋️
+                        </button>
+                    </div>
                 {% endif %}
-            </button>
+
+            </div>
 
             <div class="modal fade" id="taskModal{{ item['id'] }}" tabindex="-1" aria-labelledby="modalLabel{{ item['id'] }}" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content">
+                    <div class="modal-content" id="task-card-{{ item['id'] }}">
 
                         <div class="modal-header bg-light">
                             <h5 class="modal-title" id="modalLabel{{ item['id'] }}">
-                                📝 {{ item['name'] }}
+                                📝 <span id="view-modal-name-{{ item['id'] }}">{{ item['name'] }}</span>
                             </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                         </div>
 
                         <div class="modal-body">
-                            {% if item['description'] %}
-                                <div class="mb-4 p-3 bg-white border rounded">
-                                    <strong>Инструкция:</strong><br>
-                                    {{ item['description'] }}
-                                </div>
-                            {% endif %}
-
-                            <div class="alert alert-secondary text-center" role="alert">
-                                🚧 <em>Здесь скоро появится интерфейс для решения задания...</em>
+                            <div id="view-modal-desc-container-{{ item['id'] }}" class="mb-4 p-3 bg-white border rounded {% if not item['description'] %}d-none{% endif %}">
+                                <strong>Инструкция:</strong><br>
+                                <span id="view-modal-desc-{{ item['id'] }}">{{ item['description'] }}</span>
                             </div>
-                        </div>
 
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                            <button type="button" class="btn btn-primary">Отправить на проверку</button>
+                            {% if can_edit %}
+                                {% if item['question_type'] == 'file' and item.get('is_material') and item.get('attachments') %}
+                                    <div class="mt-3 p-3 bg-light border rounded">
+                                        <strong>📄 Конспект/Материал:</strong>
+                                        <ul class="mt-2 mb-0">
+                                            {% for att in item['attachments'] %}
+                                                <li><a href="/{{ url }}/{{ item['id'] }}/attachments/{{ att['id'] }}/file" target="_blank">{{ att['file_name'] }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% else %}
+                                    <div class="mt-3 p-3 bg-light border rounded">
+                                        <strong class="text-success">✓ Правильные ответы:</strong>
+                                        {% if item.get('options') %}
+                                            <div class="mt-2">
+                                                {% for option in item['options'] %}
+                                                    <div class="form-check fs-5 mb-2">
+                                                        <input class="form-check-input" type="checkbox" {% if loop.index0|string in item.get('correct_options', []) %}checked{% endif %} disabled>
+                                                        <label class="form-check-label">{{ option }}</label>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% elif item.get('correct_answer') %}
+                                            <p class="mt-2 mb-0 fw-bold">{{ item['correct_answer'] }}</p>
+                                        {% elif item.get('max_file_size') is not none %}
+                                            <p class="mt-2 mb-0 text-muted">Задание на загрузку файла — правильный ответ не предусмотрен.</p>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                {% if item['question_type'] == 'file' and not item.get('is_material') %}
+                                    <div class="mt-4">
+                                        <button class="btn btn-outline-info btn-sm" onclick="loadSubmissions({{ item['id'] }})">
+                                            📁 Файлы на проверку
+                                        </button>
+                                        <div id="submissions-{{ item['id'] }}" class="mt-2" style="display:none"></div>
+                                    </div>
+                                {% endif %}
+                            {% elif item['question_type'] == 'file' and item.get('is_material') %}
+                                <div class="mt-3 p-3 bg-light border rounded">
+                                    <strong>📄 Конспект/Материал</strong>
+                                    {% if item.get('attachments') %}
+                                        <ul class="mt-2 mb-0">
+                                            {% for att in item['attachments'] %}
+                                                <li><a href="/{{ url }}/{{ item['id'] }}/attachments/{{ att['id'] }}/file" target="_blank">{{ att['file_name'] }}</a></li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted mb-0">Файл не загружен.</p>
+                                    {% endif %}
+                                </div>
+                            {% elif item['id'] in attempts and (attempts[item['id']] != 0 or not item.get('can_retry', False)) %}
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ваш ответ:</label>
+                                    {% if attempts[item['id']] == 1 %}
+                                        <div class="alert alert-success mt-2">✅ Задание выполнено</div>
+                                    {% elif attempts[item['id']] == 0 %}
+                                        <div class="alert alert-danger mt-2">❌ Неверно</div>
+                                    {% else %}
+                                        <div class="alert alert-info mt-2">⏳ На проверке</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mt-3 p-3 bg-light border rounded">
+                                    <strong class="text-success">✓ Правильный ответ:</strong>
+                                    {% if item.get('options') %}
+                                        <div class="mt-2">
+                                            {% for option in item['options'] %}
+                                                <div class="form-check fs-5 mb-2">
+                                                    <input class="form-check-input" type="checkbox" {% if loop.index0|string in item.get('correct_options', []) %}checked{% endif %} disabled>
+                                                    <label class="form-check-label">{{ option }}</label>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% elif item.get('correct_answer') %}
+                                        <p class="mt-2 mb-0 fw-bold">{{ item['correct_answer'] }}</p>
+                                    {% elif item.get('max_file_size') is not none %}
+                                        <p class="mt-2 mb-0 text-muted">Задание на загрузку файла — правильный ответ не предусмотрен.</p>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                {% if item['id'] in attempts and attempts[item['id']] == 0 %}
+                                    <div class="alert alert-warning">❌ Предыдущий ответ неверный. Попробуйте снова.</div>
+                                {% endif %}
+                                <form onsubmit="submitAnswer(event, {{ item['id'] }})" enctype="multipart/form-data">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Ваш ответ:</label>
+
+                                        {% if item.get('options') %}
+                                            <div class="mt-2">
+                                                {% for option in item['options'] %}
+                                                    <div class="form-check fs-5 mb-2">
+                                                        <input class="form-check-input" type="checkbox" name="user_answer" value="{{ loop.index0 }}" id="check-{{ item['id'] }}-{{ loop.index0 }}">
+                                                        <label class="form-check-label" for="check-{{ item['id'] }}-{{ loop.index0 }}">
+                                                            {{ option }}
+                                                        </label>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+
+                                        {% elif item.get('max_file_size') is not none %}
+                                            <input type="file" class="form-control form-control-lg" name="user_answer" required>
+                                            <div class="form-text mt-2">Прикрепите файл с вашим решением (до 10 МБ).</div>
+
+                                        {% else %}
+                                            <input type="text" class="form-control form-control-lg" name="user_answer" placeholder="Введите ваш ответ здесь..." required>
+                                        {% endif %}
+                                    </div>
+
+                                    <div id="result-message-{{ item['id'] }}" class="mt-2 p-2 rounded fw-bold text-center" style="display: none;"></div>
+
+                                    <div class="modal-footer px-0 pb-0 mt-4">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                                        <button type="submit" class="btn btn-primary px-4" id="submit-btn-{{ item['id'] }}">Отправить на проверку</button>
+                                    </div>
+                                </form>
+                            {% endif %}
                         </div>
 
                     </div>
                 </div>
             </div>
+
+            {% if user and user.is_teacher and can_edit %}
+                <div class="modal fade" id="editTaskModal{{ item['id'] }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+
+                            <form onsubmit="submitTaskEdit(event, {{ item['id'] }}, '/{{ url }}/{{ item['id'] }}/edit/')">
+
+                                <div class="modal-header bg-dark text-white">
+                                    <h5 class="modal-title">🖋️ Редактирование: {{ item['name'] }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Название задания</label>
+                                        <input type="text" class="form-control" name="name" value="{{ item['name'] }}" required>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Инструкция / Описание</label>
+                                        <textarea class="form-control" name="description" rows="4">{{ item['description'] if item['description'] else '' }}</textarea>
+                                    </div>
+
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="is_private" value="true" {% if item['is_public'] == 0 %}checked{% endif %}>
+                                        <label class="form-check-label text-danger fw-bold">🔒 Сделать приватным?</label>
+                                    </div>
+
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" name="can_retry" value="true" {% if item.get('can_retry') %}checked{% endif %}>
+                                        <label class="form-check-label">🔄 Можно отвечать повторно</label>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Тип задания</label>
+                                        <select class="form-select" id="edit-question-type-{{ item['id'] }}" name="question_type" onchange="toggleEditSettings({{ item['id'] }})">
+                                            <option value="choice" {% if item['question_type'] == 'choice' %}selected{% endif %}>Выбор ответа (Тест)</option>
+                                            <option value="text" {% if item['question_type'] == 'text' %}selected{% endif %}>Свободный текст</option>
+                                            <option value="file" {% if item['question_type'] == 'file' %}selected{% endif %}>Загрузка файла</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="block_choice_edit_{{ item['id'] }}" class="p-3 mb-3 bg-light border rounded" {% if item['question_type'] != 'choice' %}style="display:none"{% endif %}>
+                                        <label class="form-label fw-bold">Варианты ответа (отметьте правильные слева)</label>
+                                        <div id="options_list_edit_{{ item['id'] }}">
+                                            {% if item.get('options') %}
+                                                {% for option in item['options'] %}
+                                                    <div class="input-group mb-2">
+                                                        <div class="input-group-text bg-white" title="Отметить как правильный">
+                                                            <input class="form-check-input mt-0" type="checkbox" name="correct_options" value="{{ loop.index0 }}" {% if loop.index0|string in item.get('correct_options', []) %}checked{% endif %}>
+                                                        </div>
+                                                        <input type="text" class="form-control" name="options" placeholder="Текст варианта" value="{{ option }}" required>
+                                                        <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()" title="Удалить">
+                                                            <i>✖</i>
+                                                        </button>
+                                                    </div>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addEditOption('options_list_edit_{{ item['id'] }}')">
+                                            + Добавить вариант
+                                        </button>
+                                    </div>
+
+                                    <div id="block_text_edit_{{ item['id'] }}" class="p-3 mb-3 bg-light border rounded" {% if item['question_type'] != 'text' %}style="display:none"{% endif %}>
+                                        <label class="form-label fw-bold">Правильный ответ (текст)</label>
+                                        <input type="text" class="form-control" name="correct_text" value="{{ item.get('correct_answer', '') }}" placeholder="Введите правильный ответ">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" name="is_case_sensitive" value="1" {% if item.get('is_case_sensitive') %}checked{% endif %}>
+                                            <label class="form-check-label">Учитывать регистр</label>
+                                        </div>
+                                    </div>
+
+                                    <div id="block_file_edit_{{ item['id'] }}" class="p-3 mb-3 bg-light border rounded" {% if item['question_type'] != 'file' %}style="display:none"{% endif %}>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="is_material_edit_{{ item['id'] }}" name="is_material" {% if item.get('is_material') %}checked{% endif %}>
+                                            <label class="form-check-label" for="is_material_edit_{{ item['id'] }}">📄 Это конспект/материал (студент только скачивает)</label>
+                                        </div>
+                                        <p class="text-muted mb-0">Файловое задание — правильный ответ не предусмотрен.</p>
+                                        {% if item.get('attachments') %}
+                                            <div class="mt-2">
+                                                <label class="form-label fw-bold small">Текущие файлы:</label>
+                                                <ul class="mb-0 small">
+                                                    {% for att in item['attachments'] %}
+                                                        <li>{{ att['file_name'] }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer d-flex justify-content-between">
+                                    <button type="button" class="btn btn-outline-danger" onclick="submitTaskDelete({{ item['id'] }})">
+                                        🗑️ Удалить
+                                    </button>
+
+                                    <div>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                        <button type="submit" class="btn btn-success">Сохранить</button>
+                                    </div>
+                                </div>
+
+                            </form>
+
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
 
         {% else %}
             <div class="alert alert-info" role="alert">
@@ -92,18 +345,23 @@
                             <div class="form-check mb-2">
                                 <input type="checkbox" class="form-check-input" id="is_private" name="is_private" checked>
                                 <label class="form-check-label" for="is_private">
-                                    Скрыть от учеников (черновик)
-                                </label>
+                                    Сделать приватным?
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" id="can_retry" name="can_retry">
+                                        <label class="form-check-label" for="can_retry">
+                                            🔄 Можно отвечать повторно
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="p-3 mb-3 bg-light border rounded">
-
+                        <div class="p-3 mb-3 bg-light border rounded">
                         <div id="block_choice">
                             <label class="form-label fw-bold">Варианты ответа (отметьте правильные слева)</label>
-                            <div id="options_list">
-                                </div>
+                            <div id="options_list"></div>
                             <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOption()">
                                 + Добавить вариант
                             </button>
@@ -111,7 +369,7 @@
 
                         <div id="block_text" style="display: none;">
                             <label for="correct_text" class="form-label fw-bold">Правильный ответ</label>
-                            <input type="text" class="form-control" id="correct_text" name="correct_text" placeholder="Введите эталонный ответ">
+                            <input type="text" class="form-control" id="correct_text" name="correct_text" placeholder="Введите эталонный ответ" required>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="is_case_sensitive" name="is_case_sensitive" value="1">
                                 <label class="form-check-label text-muted small" for="is_case_sensitive">
@@ -121,11 +379,14 @@
                         </div>
 
                         <div id="block_file" style="display: none;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="is_material" name="is_material">
+                                <label class="form-check-label" for="is_material">📄 Это конспект/материал (студент только скачивает)</label>
+                            </div>
                             <label for="task_files" class="form-label fw-bold">Прикрепить материалы к заданию</label>
                             <input class="form-control" type="file" id="task_files" name="task_files" multiple>
                             <div class="form-text small">Ученик тоже должен будет загрузить файл в качестве ответа.</div>
                         </div>
-
                     </div>
 
                     <div class="mb-3 p-3 bg-light border rounded">
@@ -140,46 +401,465 @@
     {% endif %}
 
     <script>
+        // ==========================================================
+        // НАШ НОВЫЙ ФУНКЦИОНАЛ ПРОВЕРКИ ОТВЕТОВ УЧЕНИКА БЕЗ ПЕРЕЗАГРУЗКИ
+        // ==========================================================
+        async function submitAnswer(event, taskId) {
+            event.preventDefault(); // Останавливаем перезагрузку страницы
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const resultDiv = document.getElementById(`result-message-${taskId}`);
+            const modalContent = document.getElementById(`task-card-${taskId}`);
+
+            // Блокируем интерфейс на время запроса к серверу
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Отправка...";
+            resultDiv.style.display = "none";
+
+            // Динамически вычисляем URL на основе текущего пути
+            let currentPath = window.location.pathname;
+            if (!currentPath.endsWith('/')) currentPath += '/';
+            const checkUrl = `${currentPath}${taskId}/check/`;
+
+            try {
+                const response = await fetch(checkUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    resultDiv.style.display = "block";
+                    resultDiv.innerText = result.message;
+
+                    // Находим все поля ввода в этой форме, чтобы заблокировать их при успехе
+                    const inputs = form.querySelectorAll('[name="user_answer"]');
+
+                    if (result.is_correct === true) {
+                        // ПРАВИЛЬНО (Зеленый цвет)
+                        resultDiv.className = "mt-3 p-2 rounded fw-bold text-center alert alert-success text-success";
+                        modalContent.className = "modal-content border border-success bg-light";
+                        submitBtn.style.display = "none";
+                        inputs.forEach(input => input.disabled = true);
+
+                    } else if (result.is_correct === false) {
+                        // НЕПРАВИЛЬНО (Красный цвет)
+                        resultDiv.className = "mt-3 p-2 rounded fw-bold text-center alert alert-danger text-danger";
+                        modalContent.className = "modal-content border border-danger";
+
+                    } else {
+                        // РУЧНАЯ ПРОВЕРКА (ФАЙЛ) - null (Синий/Инфо цвет)
+                        resultDiv.className = "mt-3 p-2 rounded fw-bold text-center alert alert-info text-info";
+                        modalContent.className = "modal-content border border-info bg-light";
+                        submitBtn.style.display = "none";
+                        inputs.forEach(input => input.disabled = true);
+                    }
+                } else {
+                    const errResult = await response.json();
+                    resultDiv.style.display = "block";
+                    resultDiv.className = "mt-3 p-2 rounded fw-bold text-center alert alert-warning text-warning";
+                    resultDiv.innerText = errResult.message || "Ошибка сервера при обработке ответа.";
+                }
+            } catch (error) {
+                console.error("Ошибка при проверке:", error);
+                alert("Ошибка сети. Проверьте соединение.");
+            } finally {
+                // Если ответ неверный (кнопка не спрятана), возвращаем её в рабочее состояние
+                if (submitBtn.style.display !== "none") {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "Отправить на проверку";
+                }
+            }
+        }
+
+        // Файлы на проверку
+        async function loadSubmissions(taskId) {
+            const container = document.getElementById(`submissions-${taskId}`);
+            if (container.style.display !== 'none') {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'block';
+            container.innerHTML = '<div class="text-muted">Загрузка...</div>';
+
+            let currentPath = window.location.pathname;
+            if (!currentPath.endsWith('/')) currentPath += '/';
+            const url = `${currentPath}${taskId}/submissions`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) { container.innerHTML = '<div class="text-danger">Ошибка загрузки</div>'; return; }
+                const data = await res.json();
+                if (!data.length) { container.innerHTML = '<div class="text-muted">Нет файлов на проверку</div>'; return; }
+
+                let table = '<table class="table table-sm table-bordered mb-0"><thead><tr><th>Студент</th><th>Файл</th><th>Статус</th><th>Действие</th></tr></thead><tbody>';
+                for (const s of data) {
+                    let status, statusClass, actions;
+                    if (s.is_correct === null) {
+                        status = '🟡 На проверке';
+                        statusClass = 'text-warning';
+                        actions = `<button class="btn btn-sm btn-outline-success me-1" onclick="reviewSubmission(${taskId}, ${s.user_id}, 1)">✅</button>
+                                   <button class="btn btn-sm btn-outline-danger" onclick="reviewSubmission(${taskId}, ${s.user_id}, 0)">❌</button>`;
+                    } else if (s.is_correct === 1) {
+                        status = '🟢 Принято';
+                        statusClass = 'text-success';
+                        actions = '—';
+                    } else {
+                        status = '🔴 Отклонено';
+                        statusClass = 'text-danger';
+                        actions = '—';
+                    }
+                    const fio = `${s.surname} ${s.first_name} ${s.patronymic || ''}`;
+                    const fileLink = s.file_path ? `<a href="${url}/${s.user_id}/file" target="_blank">${s.answer_text || 'Файл'}</a>` : '—';
+                    table += `<tr data-user-id="${s.user_id}">
+                        <td>${fio}</td>
+                        <td>${fileLink}</td>
+                        <td class="${statusClass}">${status}</td>
+                        <td>${actions}</td>
+                    </tr>`;
+                }
+                table += '</tbody></table>';
+                container.innerHTML = table;
+            } catch {
+                container.innerHTML = '<div class="text-danger">Ошибка сети</div>';
+            }
+        }
+
+        async function reviewSubmission(taskId, userId, isCorrect) {
+            let currentPath = window.location.pathname;
+            if (!currentPath.endsWith('/')) currentPath += '/';
+            const url = `${currentPath}${taskId}/submissions/review`;
+
+            const formData = new FormData();
+            formData.append('user_id', userId);
+            formData.append('is_correct', isCorrect);
+
+            try {
+                const res = await fetch(url, { method: 'POST', body: formData });
+                if (!res.ok) { alert('Ошибка при проверке'); return; }
+
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                if (row) {
+                    const statusCell = row.querySelector('td:nth-child(3)');
+                    const actionCell = row.querySelector('td:nth-child(4)');
+                    if (isCorrect === 1) {
+                        statusCell.className = 'text-success';
+                        statusCell.textContent = '🟢 Принято';
+                    } else {
+                        statusCell.className = 'text-danger';
+                        statusCell.textContent = '🔴 Отклонено';
+                    }
+                    actionCell.textContent = '—';
+                }
+            } catch {
+                alert('Ошибка сети');
+            }
+        }
+
+        // AJAX Редактирование задания
+        async function submitTaskEdit(event, taskId, editUrl) {
+            event.preventDefault();
+
+            const form = event.target;
+            const questionType = form.querySelector('select[name="question_type"]')?.value;
+
+            if (questionType === 'choice') {
+                const checked = form.querySelectorAll('input[name="correct_options"]:checked');
+                if (checked.length === 0) {
+                    alert('Выберите хотя бы один правильный вариант');
+                    return;
+                }
+            }
+            if (questionType === 'text') {
+                const input = form.querySelector('input[name="correct_text"]');
+                if (!input || !input.value.trim()) {
+                    alert('Введите правильный ответ');
+                    return;
+                }
+            }
+
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Сохранение...";
+
+            editUrl = editUrl.replace(/([^:]\/)\/+/g, "$1");
+
+            try {
+                const response = await fetch(editUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert("Не удалось сохранить изменения. Сервер вернул ошибку.");
+                }
+            } catch (error) {
+                console.error("Ошибка AJAX:", error);
+                alert("Ошибка сети при попытке сохранить данные.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Сохранить изменения";
+            }
+        }
+
+        // AJAX Удаление задания
+        async function submitTaskDelete(taskId) {
+            if (!confirm("Вы уверены, что хотите полностью удалить это задание? Это действие необратимо.")) {
+                return;
+            }
+
+            let currentPath = window.location.pathname;
+            if (!currentPath.endsWith('/')) currentPath += '/';
+            const deleteUrl = `${currentPath}${taskId}/delete/`;
+
+            try {
+                const response = await fetch(deleteUrl, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    // Закрываем модальное окно
+                    const modalElement = document.getElementById(`editTaskModal${taskId}`);
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    // Удаляем элемент из дерева HTML
+                    const taskWrapper = document.getElementById(`task-wrapper-${taskId}`);
+                    if (taskWrapper) {
+                        taskWrapper.remove();
+                    }
+
+                } else {
+                    alert("Не удалось удалить задание. Сервер вернул ошибку.");
+                }
+            } catch (error) {
+                console.error("Ошибка AJAX при удалении:", error);
+                alert("Произошла ошибка сети при попытке удалить задание.");
+            }
+        }
+
+        // Хелперы для управления динамической формой создания
         let optionIndex = 0;
 
-        // Функция для переключения видимости блоков
         function toggleSettings() {
             const type = document.getElementById('question_type').value;
-
             document.getElementById('block_choice').style.display = (type === 'choice') ? 'block' : 'none';
             document.getElementById('block_text').style.display = (type === 'text') ? 'block' : 'none';
             document.getElementById('block_file').style.display = (type === 'file') ? 'block' : 'none';
 
-            // Отключаем атрибут required для скрытых полей, чтобы браузер не блокировал отправку формы
             const choiceInputs = document.querySelectorAll('input[name="options"]');
             choiceInputs.forEach(input => input.required = (type === 'choice'));
         }
 
-        // Функция для добавления нового варианта ответа (Telegram-style)
+        function toggleEditSettings(taskId) {
+            const type = document.getElementById(`edit-question-type-${taskId}`).value;
+            document.getElementById(`block_choice_edit_${taskId}`).style.display = (type === 'choice') ? 'block' : 'none';
+            document.getElementById(`block_text_edit_${taskId}`).style.display = (type === 'text') ? 'block' : 'none';
+            document.getElementById(`block_file_edit_${taskId}`).style.display = (type === 'file') ? 'block' : 'none';
+        }
+
+        function addEditOption(containerId) {
+            const container = document.getElementById(containerId);
+            const index = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'input-group mb-2';
+            div.innerHTML = `
+                <div class="input-group-text bg-white" title="Отметить как правильный">
+                    <input class="form-check-input mt-0" type="checkbox" name="correct_options" value="${index}">
+                </div>
+                <input type="text" class="form-control" name="options" placeholder="Текст варианта" required>
+                <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()" title="Удалить">
+                    <i>✖</i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
         function addOption() {
             const container = document.getElementById('options_list');
             const div = document.createElement('div');
             div.className = 'input-group mb-2';
 
-            // value=${optionIndex} гарантирует, что мы будем знать, какой именно ответ отмечен правильным
             div.innerHTML = `
                 <div class="input-group-text bg-white" title="Отметить как правильный">
                     <input class="form-check-input mt-0" type="checkbox" name="correct_options" value="${optionIndex}">
                 </div>
                 <input type="text" class="form-control" name="options" placeholder="Текст варианта" required>
                 <button class="btn btn-outline-danger" type="button" onclick="this.parentElement.remove()" title="Удалить">
-                    <i class="bi bi-trash">✖</i>
+                    <i>✖</i>
                 </button>
             `;
             container.appendChild(div);
             optionIndex++;
         }
 
-        // Добавляем два пустых варианта при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             addOption();
             addOption();
             toggleSettings();
         });
+
+        let manageBaseUrl = '';
+
+        function openManageModal(baseUrl, entityName) {
+            manageBaseUrl = baseUrl;
+            document.getElementById('manageModalTitle').textContent = entityName;
+            document.getElementById('redactorSearch').value = '';
+            document.getElementById('redactorSearchResults').style.display = 'none';
+            document.getElementById('studentSearch').value = '';
+            document.getElementById('studentSearchResults').style.display = 'none';
+            loadRedactors();
+            loadStudents();
+            new bootstrap.Modal(document.getElementById('manageModal')).show();
+        }
+
+        async function loadRedactors() {
+            const list = document.getElementById('redactorList');
+            try {
+                const res = await fetch(manageBaseUrl + '/redactors');
+                if (!res.ok) { list.innerHTML = '<li class="list-group-item text-danger">Ошибка загрузки</li>'; return; }
+                const data = await res.json();
+                if (!data.length) { list.innerHTML = '<li class="list-group-item text-muted">Нет редакторов</li>'; return; }
+                list.innerHTML = data.map(u => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${u.surname} ${u.first_name} (${u.email})
+                        ${u.protected ? '' : '<button class="btn btn-sm btn-outline-danger" onclick="removeRedactor(' + u.id + ')">✕</button>'}
+                    </li>
+                `).join('');
+            } catch { list.innerHTML = '<li class="list-group-item text-danger">Ошибка сети</li>'; }
+        }
+
+        async function loadStudents() {
+            const list = document.getElementById('studentList');
+            try {
+                const res = await fetch(manageBaseUrl + '/students');
+                if (!res.ok) { list.innerHTML = '<li class="list-group-item text-danger">Ошибка загрузки</li>'; return; }
+                const data = await res.json();
+                if (!data.length) { list.innerHTML = '<li class="list-group-item text-muted">Нет студентов</li>'; return; }
+                list.innerHTML = data.map(u => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${u.surname} ${u.first_name} (${u.email})
+                        <button class="btn btn-sm btn-outline-danger" onclick="removeStudent(${u.id})">✕</button>
+                    </li>
+                `).join('');
+            } catch { list.innerHTML = '<li class="list-group-item text-danger">Ошибка сети</li>'; }
+        }
+
+        async function searchUser(input, resultsId) {
+            const results = document.getElementById(resultsId);
+            const q = input.value.trim();
+            if (q.length < 2) { results.style.display = 'none'; return; }
+            try {
+                const res = await fetch('/users/search?q=' + encodeURIComponent(q));
+                const data = await res.json();
+                if (!data.length) { results.style.display = 'none'; return; }
+                results.style.display = 'block';
+                results.innerHTML = data.map(u => `
+                    <div class="border rounded p-1 mb-1 bg-light d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="selectUser('${resultsId}', ${u.id}, '${u.surname} ${u.first_name} (${u.email})')">
+                        <span>${u.surname} ${u.first_name} (${u.email})</span>
+                        <span class="badge ${u.is_teacher ? 'bg-warning' : 'bg-secondary'}">${u.is_teacher ? 'Учитель' : 'Студент'}</span>
+                    </div>
+                `).join('');
+            } catch { results.style.display = 'none'; }
+        }
+
+        function selectUser(resultsId, userId, label) {
+            const searchId = resultsId === 'redactorSearchResults' ? 'redactorSearch' : 'studentSearch';
+            document.getElementById(searchId).value = label;
+            document.getElementById(searchId).dataset.selectedId = userId;
+            document.getElementById(resultsId).style.display = 'none';
+        }
+
+        async function addRedactor() {
+            const input = document.getElementById('redactorSearch');
+            const userId = input.dataset.selectedId;
+            if (!userId) { alert('Найдите пользователя и выберите его из списка'); return; }
+            const formData = new FormData();
+            formData.append('action', 'add_redactor');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) { input.value = ''; delete input.dataset.selectedId; loadRedactors(); }
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function removeRedactor(userId) {
+            const formData = new FormData();
+            formData.append('action', 'remove_redactor');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) loadRedactors();
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function addStudent() {
+            const input = document.getElementById('studentSearch');
+            const userId = input.dataset.selectedId;
+            if (!userId) { alert('Найдите пользователя и выберите его из списка'); return; }
+            const formData = new FormData();
+            formData.append('action', 'add_student');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) { input.value = ''; delete input.dataset.selectedId; loadStudents(); }
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function removeStudent(userId) {
+            const formData = new FormData();
+            formData.append('action', 'remove_student');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) loadStudents();
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
     </script>
+
+    <div class="modal fade" id="manageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">⚙️ Управление: <span id="manageModalTitle"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#redactorsTab" type="button">Редакторы</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#studentsTab" type="button">Студенты</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3">
+                        <div class="tab-pane fade show active" id="redactorsTab">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="redactorSearch" placeholder="Поиск пользователей..." oninput="searchUser(this, 'redactorSearchResults')">
+                                <button class="btn btn-primary" onclick="addRedactor()">Добавить</button>
+                            </div>
+                            <div id="redactorSearchResults" class="mb-2" style="display:none;"></div>
+                            <ul class="list-group" id="redactorList"><li class="list-group-item text-muted">Загрузка...</li></ul>
+                        </div>
+                        <div class="tab-pane fade" id="studentsTab">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="studentSearch" placeholder="Поиск пользователей..." oninput="searchUser(this, 'studentSearchResults')">
+                                <button class="btn btn-primary" onclick="addStudent()">Добавить</button>
+                            </div>
+                            <div id="studentSearchResults" class="mb-2" style="display:none;"></div>
+                            <ul class="list-group" id="studentList"><li class="list-group-item text-muted">Загрузка...</li></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

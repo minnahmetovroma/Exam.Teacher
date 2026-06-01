@@ -57,7 +57,7 @@ async def register_post(request: Request):
             url='/register/?title=Пароли не совпадают',
             status_code=status.HTTP_303_SEE_OTHER
         )
-    if db.is_in_users(data):
+    if await db.is_in_users(data):
         return RedirectResponse(
             url='/register/?title=Такой пользователь уже создан',
             status_code=status.HTTP_303_SEE_OTHER

@@ -1,13 +1,435 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Все предметы</h1>
+    <h1>{{ title }}</h1>
+
     <div class="list-group mt-3">
-        {% for subject in subjects %}
-            <a href="/subjects/{{ subject[0] }}" class="list-group-item list-group-item-action">
-                {{ subject[1] }}
-                <small class="text-muted d-block">{{ subject[2] }}</small>
-            </a>
+        {% for item in items %}
+
+            <div id="item-wrapper-{{ item['id'] }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-0">
+
+                <a href="/subjects/{{ item['id'] }}/" class="text-decoration-none text-dark p-3 flex-grow-1">
+                    <div class="d-flex w-100 justify-content-between">
+
+                        <h5 class="mb-1" id="item-name-text-{{ item['id'] }}">{{ item['name'] }}</h5>
+
+                        <span id="item-badge-container-{{ item['id'] }}">
+                            {% if item['can_edit'] %}
+                                {% if item['is_public'] == 0 %}
+                                    <span class="badge bg-warning text-dark">Приватно</span>
+                                {% else %}
+                                    <span class="badge bg-success">Публично</span>
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <small class="text-muted d-block mt-1" id="item-desc-text-{{ item['id'] }}">
+                        {{ item.get('description', '') }}
+                    </small>
+                </a>
+
+                {% if user and user.is_teacher and item.get('can_edit') %}
+                    <div class="pe-3 d-flex gap-1">
+                        <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
+                                onclick="openManageModal('/subjects/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
+                            ⚙️
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editItemModal{{ item['id'] }}" title="Редактировать предмет">
+                            🖋️
+                        </button>
+                    </div>
+                {% endif %}
+
+            </div>
+
+            {% if user and user.is_teacher and item.get('can_edit') %}
+                <div class="modal fade" id="editItemModal{{ item['id'] }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+
+                            <form onsubmit="submitItemEdit(event, {{ item['id'] }}, '/subjects/{{ item['id'] }}/edit/')">
+
+                                <div class="modal-header bg-dark text-white">
+                                    <h5 class="modal-title">🖋️ Редактирование: {{ item['name'] }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Название предмета</label>
+                                        <input type="text" class="form-control" name="name" value="{{ item['name'] }}">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Описание предмета</label>
+                                        <textarea class="form-control" name="description" rows="3">{{ item.get('description', '') }}</textarea>
+                                    </div>
+
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" name="is_private" value="true" {% if item.get('is_public') == 0 %}checked{% endif %}>
+                                        <label class="form-check-label text-danger fw-bold">🔒 Сделать приватным? </label>
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer d-flex justify-content-between">
+                                    <button type="button" class="btn btn-outline-danger"
+                                            onclick="submitItemDelete({{ item['id'] }}, '/subjects/{{ item['id'] }}/delete/')">
+                                        🗑️ Удалить
+                                    </button>
+
+                                    <div>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                        <button type="submit" class="btn btn-success">Сохранить</button>
+                                    </div>
+                                </div>
+
+                            </form>
+
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="alert alert-info" role="alert">
+                Список предметов пуст.
+            </div>
         {% endfor %}
     </div>
+
+    {% if user and user.is_teacher %}
+        <div class="card mt-4 mb-5 border-primary">
+            <div class="card-header bg-primary text-white font-weight-bold">
+                ➕ Добавить новый предмет
+            </div>
+            <div class="card-body">
+                <form onsubmit="submitItemCreate(event, '/subjects/')">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Название предмета</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Описание (опционально)</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="is_private_new" name="is_private" checked>
+                        <label class="form-check-label text-muted" for="is_private_new">
+                            Сделать приватным?
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="modal fade" id="manageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">⚙️ Управление: <span id="manageModalTitle"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#redactorsTab" type="button">Редакторы</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#studentsTab" type="button">Студенты</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3">
+                        <div class="tab-pane fade show active" id="redactorsTab">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="redactorSearch" placeholder="Поиск пользователей..." oninput="searchUser(this, 'redactorSearchResults')">
+                                <button class="btn btn-primary" onclick="addRedactor()">Добавить</button>
+                            </div>
+                            <div id="redactorSearchResults" class="mb-2" style="display:none;"></div>
+                            <ul class="list-group" id="redactorList"><li class="list-group-item text-muted">Загрузка...</li></ul>
+                        </div>
+                        <div class="tab-pane fade" id="studentsTab">
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="studentSearch" placeholder="Поиск пользователей..." oninput="searchUser(this, 'studentSearchResults')">
+                                <button class="btn btn-primary" onclick="addStudent()">Добавить</button>
+                            </div>
+                            <div id="studentSearchResults" class="mb-2" style="display:none;"></div>
+                            <div class="mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="accessAllTopics">
+                                    <label class="form-check-label">Доступ ко всем темам (включая приватные)</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="accessAllTasks">
+                                    <label class="form-check-label">Доступ ко всем заданиям (включая приватные)</label>
+                                </div>
+                            </div>
+                            <ul class="list-group" id="studentList"><li class="list-group-item text-muted">Загрузка...</li></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let manageBaseUrl = '';
+
+        function openManageModal(baseUrl, entityName) {
+            manageBaseUrl = baseUrl;
+            document.getElementById('manageModalTitle').textContent = entityName;
+            document.getElementById('redactorSearch').value = '';
+            document.getElementById('redactorSearchResults').style.display = 'none';
+            document.getElementById('studentSearch').value = '';
+            document.getElementById('studentSearchResults').style.display = 'none';
+            loadRedactors();
+            loadStudents();
+            new bootstrap.Modal(document.getElementById('manageModal')).show();
+        }
+
+        async function loadRedactors() {
+            const list = document.getElementById('redactorList');
+            try {
+                const res = await fetch(manageBaseUrl + '/redactors');
+                if (!res.ok) { list.innerHTML = '<li class="list-group-item text-danger">Ошибка загрузки</li>'; return; }
+                const data = await res.json();
+                if (!data.length) { list.innerHTML = '<li class="list-group-item text-muted">Нет редакторов</li>'; return; }
+                list.innerHTML = data.map(u => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${u.surname} ${u.first_name} (${u.email})
+                        ${u.protected ? '' : '<button class="btn btn-sm btn-outline-danger" onclick="removeRedactor(' + u.id + ')">✕</button>'}
+                    </li>
+                `).join('');
+            } catch { list.innerHTML = '<li class="list-group-item text-danger">Ошибка сети</li>'; }
+        }
+
+        async function loadStudents() {
+            const list = document.getElementById('studentList');
+            try {
+                const res = await fetch(manageBaseUrl + '/students');
+                if (!res.ok) { list.innerHTML = '<li class="list-group-item text-danger">Ошибка загрузки</li>'; return; }
+                const data = await res.json();
+                if (!data.length) { list.innerHTML = '<li class="list-group-item text-muted">Нет студентов</li>'; return; }
+                list.innerHTML = data.map(u => {
+                    let flags = '';
+                    if (u.access_all_topics) flags += '<span class="badge bg-info me-1">Все темы</span>';
+                    if (u.access_all_tasks) flags += '<span class="badge bg-info">Все задания</span>';
+                    return `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            ${u.surname} ${u.first_name} (${u.email}) ${flags}
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeStudent(${u.id})">✕</button>
+                        </li>
+                    `;
+                }).join('');
+            } catch { list.innerHTML = '<li class="list-group-item text-danger">Ошибка сети</li>'; }
+        }
+
+        async function searchUser(input, resultsId) {
+            const results = document.getElementById(resultsId);
+            const q = input.value.trim();
+            if (q.length < 2) { results.style.display = 'none'; return; }
+            try {
+                const res = await fetch('/users/search?q=' + encodeURIComponent(q));
+                const data = await res.json();
+                if (!data.length) { results.style.display = 'none'; return; }
+                results.style.display = 'block';
+                results.innerHTML = data.map(u => `
+                    <div class="border rounded p-1 mb-1 bg-light d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="selectUser('${resultsId}', ${u.id}, '${u.surname} ${u.first_name} (${u.email})')">
+                        <span>${u.surname} ${u.first_name} (${u.email})</span>
+                        <span class="badge ${u.is_teacher ? 'bg-warning' : 'bg-secondary'}">${u.is_teacher ? 'Учитель' : 'Студент'}</span>
+                    </div>
+                `).join('');
+            } catch { results.style.display = 'none'; }
+        }
+
+        function selectUser(resultsId, userId, label) {
+            const searchId = resultsId === 'redactorSearchResults' ? 'redactorSearch' : 'studentSearch';
+            document.getElementById(searchId).value = label;
+            document.getElementById(searchId).dataset.selectedId = userId;
+            document.getElementById(resultsId).style.display = 'none';
+        }
+
+        async function addRedactor() {
+            const input = document.getElementById('redactorSearch');
+            const userId = input.dataset.selectedId;
+            if (!userId) { alert('Найдите пользователя и выберите его из списка'); return; }
+            const formData = new FormData();
+            formData.append('action', 'add_redactor');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) { input.value = ''; delete input.dataset.selectedId; loadRedactors(); }
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function removeRedactor(userId) {
+            const formData = new FormData();
+            formData.append('action', 'remove_redactor');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) loadRedactors();
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function addStudent() {
+            const input = document.getElementById('studentSearch');
+            const userId = input.dataset.selectedId;
+            if (!userId) { alert('Найдите пользователя и выберите его из списка'); return; }
+            const formData = new FormData();
+            formData.append('action', 'add_student');
+            formData.append('target_user_id', userId);
+            formData.append('access_all_topics', document.getElementById('accessAllTopics').checked);
+            formData.append('access_all_tasks', document.getElementById('accessAllTasks').checked);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) { input.value = ''; delete input.dataset.selectedId; loadStudents(); }
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function removeStudent(userId) {
+            const formData = new FormData();
+            formData.append('action', 'remove_student');
+            formData.append('target_user_id', userId);
+            const res = await fetch(manageBaseUrl + '/manage', { method: 'POST', body: formData });
+            if (res.ok) loadStudents();
+            else { const err = await res.json(); alert(err.detail || 'Ошибка'); }
+        }
+
+        async function submitItemEdit(event, itemId, editUrl) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Сохранение...";
+
+            try {
+                const response = await fetch(editUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    const nameEl = document.getElementById(`item-name-text-${itemId}`);
+                    if (nameEl) nameEl.innerText = result.new_name;
+
+                    const descEl = document.getElementById(`item-desc-text-${itemId}`);
+                    if (descEl) {
+                        descEl.innerText = result.new_description || '';
+                    }
+
+                    const badgeContainer = document.getElementById(`item-badge-container-${itemId}`);
+                    if (badgeContainer) {
+                        if (!result.is_public) {
+                            badgeContainer.innerHTML = '<span class="badge bg-warning text-dark">Приватно</span>';
+                        } else {
+                            badgeContainer.innerHTML = '<span class="badge bg-success">Публично</span>';
+                        }
+                    }
+
+                    const modalElement = document.getElementById(`editItemModal${itemId}`);
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                } else {
+                    alert("Не удалось сохранить изменения. Сервер вернул ошибку.");
+                }
+            } catch (error) {
+                console.error("Ошибка AJAX:", error);
+                alert("Ошибка сети при попытке сохранить данные.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Сохранить";
+            }
+        }
+
+        async function submitItemDelete(itemId, deleteUrl) {
+            if (!confirm("Вы уверены, что хотите удалить этот предмет? Все вложенные данные (темы/задания) будут удалены безвозвратно!")) {
+                return;
+            }
+
+            try {
+                deleteUrl = deleteUrl.replace(/([^:]\/)\/+/g, "$1");
+
+                // Создаем пустую форму, чтобы избежать ошибки 422 (FastAPI требует тело для POST)
+                const fakeData = new FormData();
+
+                const response = await fetch(deleteUrl, {
+                    method: 'POST',
+                    body: fakeData // <-- Передаем пустую форму
+                });
+
+                if (response.ok) {
+                    // Закрываем модальное окно
+                    const modalElement = document.getElementById(`editItemModal${itemId}`);
+                    if (modalElement) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        } else {
+                            // Если Bootstrap не отдал инстанс, скрываем вручную
+                            modalElement.style.display = 'none';
+                            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                        }
+                    }
+
+                    // Удаляем элемент из дерева HTML
+                    const itemWrapper = document.getElementById(`item-wrapper-${itemId}`);
+                    if (itemWrapper) {
+                        itemWrapper.remove();
+                    }
+                } else {
+                    // Выводим точечную ошибку от FastAPI, если она случится
+                    const errorData = await response.json().catch(() => null);
+                    const errorMessage = errorData && errorData.detail ? errorData.detail : "Неизвестная ошибка";
+                    alert(`Ошибка ${response.status}: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error("Ошибка AJAX при удалении:", error);
+                alert("Произошла ошибка сети при попытке удалить элемент.");
+            }
+        }
+    </script>
+    <script>
+        async function submitItemCreate(event, createUrl) {
+            event.preventDefault(); // Останавливаем классическую перезагрузку
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Создание...";
+
+            try {
+                const response = await fetch(createUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Данные успешно сохранены в БД!
+                    // Перезагружаем страницу, чтобы Jinja2 отрисовала новый элемент списка
+                    window.location.reload();
+                } else {
+                    const errorData = await response.json().catch(() => null);
+                    const errorMessage = errorData && errorData.detail ? errorData.detail : "Неизвестная ошибка";
+                    alert(`Ошибка при создании: ${errorMessage}`);
+                }
+            } catch (error) {
+                console.error("Ошибка AJAX:", error);
+                alert("Ошибка сети при попытке создать предмет.");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Создать";
+            }
+        }
+    </script>
 {% endblock %}
