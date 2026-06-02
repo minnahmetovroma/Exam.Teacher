@@ -12,7 +12,7 @@
                 <div class="p-3 flex-grow-1" data-bs-toggle="modal" data-bs-target="#taskModal{{ item['id'] }}" style="cursor: pointer;">
                     <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1" id="task-name-text-{{ item['id'] }}">
-                            {% if item['question_type'] == 'file' and item.get('is_material') %}📄{% endif %}
+                            {% if item['question_type'] == 'material' %}📄{% endif %}
                             {{ item['name'] }}
                         </h5>
 
@@ -24,7 +24,7 @@
                                     <span class="badge bg-success">Публично</span>
                                 {% endif %}
                             {% endif %}
-                            {% if not can_edit and item['id'] in attempts and not item.get('is_material') %}
+                            {% if not can_edit and item['id'] in attempts and item['question_type'] != 'material' %}
                                 {% if attempts[item['id']] == 1 %}
                                     <span class="badge bg-success ms-1">✓ Выполнено</span>
                                 {% elif attempts[item['id']] == 0 %}
@@ -44,7 +44,7 @@
                 {% if user and user.is_teacher and can_edit %}
                     <div class="pe-3 d-flex gap-1">
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
-                                onclick="openManageModal('/subjects/{{ url }}/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
+                                onclick="openManageModal('/{{ url }}/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
                             ⚙️
                         </button>
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
@@ -74,7 +74,7 @@
                             </div>
 
                             {% if can_edit %}
-                                {% if item['question_type'] == 'file' and item.get('is_material') and item.get('attachments') %}
+                                {% if item['question_type'] == 'material' and item.get('attachments') %}
                                     <div class="mt-3 p-3 bg-light border rounded">
                                         <strong>📄 Конспект/Материал:</strong>
                                         <ul class="mt-2 mb-0">
@@ -103,7 +103,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if item['question_type'] == 'file' and not item.get('is_material') %}
+                                {% if item['question_type'] == 'file' %}
                                     <div class="mt-4">
                                         <button class="btn btn-outline-info btn-sm" onclick="loadSubmissions({{ item['id'] }})">
                                             📁 Файлы на проверку
@@ -111,7 +111,7 @@
                                         <div id="submissions-{{ item['id'] }}" class="mt-2" style="display:none"></div>
                                     </div>
                                 {% endif %}
-                            {% elif item['question_type'] == 'file' and item.get('is_material') %}
+                            {% elif item['question_type'] == 'material' %}
                                 <div class="mt-3 p-3 bg-light border rounded">
                                     <strong>📄 Конспект/Материал</strong>
                                     {% if item.get('attachments') %}
@@ -201,7 +201,7 @@
                     <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content">
 
-                            <form onsubmit="submitTaskEdit(event, {{ item['id'] }}, '/{{ url }}/{{ item['id'] }}/edit/')">
+                            <form onsubmit="submitTaskEdit(event, {{ item['id'] }}, '/{{ url }}/{{ item['id'] }}/edit/')" enctype="multipart/form-data">
 
                                 <div class="modal-header bg-dark text-white">
                                     <h5 class="modal-title">🖋️ Редактирование: {{ item['name'] }}</h5>
@@ -235,6 +235,7 @@
                                             <option value="choice" {% if item['question_type'] == 'choice' %}selected{% endif %}>Выбор ответа (Тест)</option>
                                             <option value="text" {% if item['question_type'] == 'text' %}selected{% endif %}>Свободный текст</option>
                                             <option value="file" {% if item['question_type'] == 'file' %}selected{% endif %}>Загрузка файла</option>
+                                            <option value="material" {% if item['question_type'] == 'material' %}selected{% endif %}>Конспект/Материал</option>
                                         </select>
                                     </div>
 
@@ -270,11 +271,37 @@
                                     </div>
 
                                     <div id="block_file_edit_{{ item['id'] }}" class="p-3 mb-3 bg-light border rounded" {% if item['question_type'] != 'file' %}style="display:none"{% endif %}>
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input" type="checkbox" id="is_material_edit_{{ item['id'] }}" name="is_material" {% if item.get('is_material') %}checked{% endif %}>
-                                            <label class="form-check-label" for="is_material_edit_{{ item['id'] }}">📄 Это конспект/материал (студент только скачивает)</label>
-                                        </div>
                                         <p class="text-muted mb-0">Файловое задание — правильный ответ не предусмотрен.</p>
+                                        {% if item.get('attachments') %}
+                                            <div class="mt-2">
+                                                <label class="form-label fw-bold small">Текущие файлы:</label>
+                                                <ul class="mb-0 small">
+                                                    {% for att in item['attachments'] %}
+                                                        <li>{{ att['file_name'] }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div id="block_material_edit_{{ item['id'] }}" class="p-3 mb-3 bg-light border rounded" {% if item['question_type'] != 'material' %}style="display:none"{% endif %}>
+                                        <p class="text-muted mb-0">📄 Конспект/Материал — студенты только скачивают файлы</p>
+                                        {% if item.get('attachments') %}
+                                            <div class="mt-2">
+                                                <label class="form-label fw-bold small">Текущие файлы:</label>
+                                                <ul class="mb-0 small">
+                                                    {% for att in item['attachments'] %}
+                                                        <li>{{ att['file_name'] }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="mb-3 p-3 bg-light border rounded">
+                                        <label class="form-label fw-bold">📎 Прикрепить новые файлы (Картинки, PDF, Текст)</label>
+                                        <input class="form-control" type="file" id="edit-task-attachments" name="task_attachments" multiple accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx" onchange="updateFileList('edit-task-attachments', 'file-list-edit')">
+                                        <div id="file-list-edit" class="mt-2"></div>
                                         {% if item.get('attachments') %}
                                             <div class="mt-2">
                                                 <label class="form-label fw-bold small">Текущие файлы:</label>
@@ -338,6 +365,7 @@
                                 <option value="choice" selected>Выбор ответа (Тест)</option>
                                 <option value="text">Свободный текст</option>
                                 <option value="file">Загрузка файла</option>
+                                <option value="material">Конспект/Материал</option>
                             </select>
                         </div>
 
@@ -356,7 +384,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
                         <div class="p-3 mb-3 bg-light border rounded">
                         <div id="block_choice">
@@ -378,20 +405,15 @@
                             </div>
                         </div>
 
-                        <div id="block_file" style="display: none;">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="is_material" name="is_material">
-                                <label class="form-check-label" for="is_material">📄 Это конспект/материал (студент только скачивает)</label>
-                            </div>
-                            <label for="task_files" class="form-label fw-bold">Прикрепить материалы к заданию</label>
-                            <input class="form-control" type="file" id="task_files" name="task_files" multiple>
-                            <div class="form-text small">Ученик тоже должен будет загрузить файл в качестве ответа.</div>
+                        <div id="block_material" style="display: none;">
+                            <p class="text-muted">Конспект/материал — студенты смогут только скачивать прикреплённые файлы.</p>
                         </div>
                     </div>
 
                     <div class="mb-3 p-3 bg-light border rounded">
                         <label for="task_attachments" class="form-label fw-bold">📎 Прикрепить материалы (Картинки, PDF, Текст)</label>
-                        <input class="form-control" type="file" id="task_attachments" name="task_attachments" multiple accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx">
+                        <input class="form-control" type="file" id="task_attachments" name="task_attachments" multiple accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx" onchange="updateFileList('task_attachments', 'file-list-create')">
+                        <div id="file-list-create" class="mt-2"></div>
                     </div>
 
                     <button type="submit" class="btn btn-success mt-3">Сохранить задание</button>
@@ -654,12 +676,21 @@
 
         function toggleSettings() {
             const type = document.getElementById('question_type').value;
+
+            // Переключаем видимость блоков
             document.getElementById('block_choice').style.display = (type === 'choice') ? 'block' : 'none';
             document.getElementById('block_text').style.display = (type === 'text') ? 'block' : 'none';
-            document.getElementById('block_file').style.display = (type === 'file') ? 'block' : 'none';
+            document.getElementById('block_material').style.display = (type === 'material') ? 'block' : 'none';
 
+            // Включаем/выключаем обязательность для вариантов ответа (Тест)
             const choiceInputs = document.querySelectorAll('input[name="options"]');
             choiceInputs.forEach(input => input.required = (type === 'choice'));
+
+            // Включаем/выключаем обязательность для текстового ответа
+            const textInput = document.getElementById('correct_text');
+            if (textInput) {
+                textInput.required = (type === 'text');
+            }
         }
 
         function toggleEditSettings(taskId) {
@@ -667,6 +698,45 @@
             document.getElementById(`block_choice_edit_${taskId}`).style.display = (type === 'choice') ? 'block' : 'none';
             document.getElementById(`block_text_edit_${taskId}`).style.display = (type === 'text') ? 'block' : 'none';
             document.getElementById(`block_file_edit_${taskId}`).style.display = (type === 'file') ? 'block' : 'none';
+            document.getElementById(`block_material_edit_${taskId}`).style.display = (type === 'material') ? 'block' : 'none';
+        }
+
+        function updateFileList(inputId, listId) {
+            const input = document.getElementById(inputId);
+            const list = document.getElementById(listId);
+            if (!input || !list) return;
+            list.innerHTML = '';
+            for (let i = 0; i < input.files.length; i++) {
+                const file = input.files[i];
+                const div = document.createElement('div');
+                div.className = 'd-flex align-items-center justify-content-between py-1';
+                const span = document.createElement('span');
+                span.className = 'small';
+                span.textContent = file.name;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-outline-danger py-0 px-1';
+                btn.textContent = '\u2715';
+                btn.title = 'Удалить файл';
+                btn.onclick = function(index) {
+                    return function() { removeFile(inputId, listId, index); };
+                }(i);
+                div.appendChild(span);
+                div.appendChild(btn);
+                list.appendChild(div);
+            }
+        }
+
+        function removeFile(inputId, listId, index) {
+            const input = document.getElementById(inputId);
+            const dt = new DataTransfer();
+            for (let i = 0; i < input.files.length; i++) {
+                if (i !== index) {
+                    dt.items.add(input.files[i]);
+                }
+            }
+            input.files = dt.files;
+            updateFileList(inputId, listId);
         }
 
         function addEditOption(containerId) {

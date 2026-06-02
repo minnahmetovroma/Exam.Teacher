@@ -302,7 +302,6 @@ async def create_task(
         correct_options: List[str] = Form(None),
 
         can_retry: bool = Form(False),
-        is_material: bool = Form(False),
 
         task_attachments: List[UploadFile] = File(default=[])
 ):
@@ -318,6 +317,7 @@ async def create_task(
     if question_type == 'text' and (not correct_text or not correct_text.strip()):
         raise HTTPException(status_code=400, detail="Введите правильный ответ")
 
+    is_material = (question_type == 'material')
     is_public = not is_private
 
     task_info = await db.add_new_task(
@@ -377,7 +377,7 @@ async def edit_task(
         options: List[str] = Form(None),
         correct_options: List[str] = Form(None),
         can_retry: bool = Form(False),
-        is_material: bool = Form(False),
+        task_attachments: List[UploadFile] = File(default=[]),
         user: dict = Depends(get_current_user)
 ):
     is_editor = user.get('is_editor', False)
@@ -393,6 +393,7 @@ async def edit_task(
     if question_type == 'text' and (not correct_text or not correct_text.strip()):
         raise HTTPException(status_code=400, detail="Введите правильный ответ")
 
+    is_material = (question_type == 'material') if question_type else False
     is_public = not is_private
     ok = await db.update_task_fields(
         task_id, name, description, is_public,
@@ -406,6 +407,26 @@ async def edit_task(
     )
     if not ok:
         raise HTTPException(status_code=500, detail="Ошибка при сохранении изменений.")
+
+    if task_attachments and task_attachments[0].filename:
+        upload_dir = f"static/uploads/tasks/{task_id}"
+        makedirs(upload_dir, exist_ok=True)
+
+        for file in task_attachments:
+            if file.filename:
+                try:
+                    ext = file.filename.split('.')[-1]
+                    unique_filename = f"{uuid4().hex}.{ext}"
+                    file_path = f"{upload_dir}/{unique_filename}"
+
+                    with open(file_path, "wb") as buffer:
+                        copyfileobj(file.file, buffer)
+
+                    await db.add_task_attachment(task_id, file_path, file.filename)
+
+                except Exception as e:
+                    logging.error(f"Ошибка при сохранении файла {file.filename} для задания {task_id}: {e}")
+                    pass
 
     return {
             "status": "success",
@@ -480,6 +501,12 @@ async def check_answer_endpoint(
 
         answer_text = user_answer
         message = "Правильно! Отличная работа 🎉" if is_correct else "Неверно. Попробуй еще раз!"
+
+    elif question_type == 'material':
+        return JSONResponse(status_code=400, content={
+            "is_correct": False,
+            "message": "Конспект/материал — не требует ответа."
+        })
 
     elif question_type == 'file':
         user_file = form_data.get('user_answer')
@@ -679,6 +706,9 @@ async def manage_subject(
         raise HTTPException(status_code=403)
 
     if action == 'add_redactor':
+        target_user = await db.get_user_by_id(target_user_id)
+        if not target_user or not target_user['is_teacher']:
+            raise HTTPException(status_code=400, detail="Можно добавить только учителя")
         ok = await db.add_subject_redactor(subject_id, target_user_id)
     elif action == 'remove_redactor':
         subject = await db.get_subject_by_id(subject_id)
@@ -712,6 +742,9 @@ async def manage_topic(
         raise HTTPException(status_code=403)
 
     if action == 'add_redactor':
+        target_user = await db.get_user_by_id(target_user_id)
+        if not target_user or not target_user['is_teacher']:
+            raise HTTPException(status_code=400, detail="Можно добавить только учителя")
         ok = await db.add_topic_redactor(topic_id, target_user_id)
     elif action == 'remove_redactor':
         topic_creator = await db.get_topic_creator(topic_id)
@@ -746,6 +779,9 @@ async def manage_task(
         raise HTTPException(status_code=403)
 
     if action == 'add_redactor':
+        target_user = await db.get_user_by_id(target_user_id)
+        if not target_user or not target_user['is_teacher']:
+            raise HTTPException(status_code=400, detail="Можно добавить только учителя")
         ok = await db.add_task_redactor(task_id, target_user_id)
     elif action == 'remove_redactor':
         task = await db.get_task_by_id(task_id)

@@ -509,6 +509,12 @@ async def add_new_task(
                     (task_id, int(is_material))
                 )
 
+            elif question_type == 'material':
+                await cursor.execute(
+                    "INSERT INTO file_tasks (task_id, is_material) VALUES (%s, %s)",
+                    (task_id, 1)
+                )
+
             # 3. Права редакторов
             await cursor.execute(
                 "INSERT INTO task_redactors (task_id, user_id) VALUES (%s, %s)",
@@ -1122,18 +1128,24 @@ async def delete_subject(subject_id: int) -> bool:
         return False
     try:
         async with connection.cursor() as cursor:
-            # 1. Удаляем все задания (tasks), которые привязаны к темам этого предмета
+            await cursor.execute(
+                "SELECT id FROM tasks WHERE topic_id IN (SELECT id FROM topics WHERE subject_id = %s)",
+                (subject_id,)
+            )
+            task_ids = [row['id'] for row in await cursor.fetchall()]
+
+            for task_id in task_ids:
+                await _delete_task_file(task_id)
+
             delete_tasks_sql = """
                 DELETE FROM tasks 
                 WHERE topic_id IN (SELECT id FROM topics WHERE subject_id = %s)
             """
             await cursor.execute(delete_tasks_sql, (subject_id,))
 
-            # 2. Удаляем все темы (topics) этого предмета
             delete_topics_sql = "DELETE FROM topics WHERE subject_id = %s"
             await cursor.execute(delete_topics_sql, (subject_id,))
 
-            # 3. И только теперь удаляем сам предмет (subjects)
             delete_subject_sql = "DELETE FROM subjects WHERE id = %s"
             await cursor.execute(delete_subject_sql, (subject_id,))
 
@@ -1171,8 +1183,13 @@ async def delete_topic(topic_id: int) -> bool:
         return False
     try:
         async with connection.cursor() as cursor:
-            sql = "DELETE FROM topics WHERE id = %s"
-            await cursor.execute(sql, (topic_id,))
+            await cursor.execute("SELECT id FROM tasks WHERE topic_id = %s", (topic_id,))
+            task_ids = [row['id'] for row in await cursor.fetchall()]
+
+            for task_id in task_ids:
+                await _delete_task_file(task_id)
+
+            await cursor.execute("DELETE FROM topics WHERE id = %s", (topic_id,))
             await connection.commit()
             return True
     except Exception as e:
@@ -1283,6 +1300,12 @@ async def update_task_fields(
                         "INSERT INTO file_tasks (task_id, is_material) VALUES (%s, %s)",
                         (task_id, int(is_material))
                     )
+
+                elif question_type == 'material':
+                    await cursor.execute(
+                        "INSERT INTO file_tasks (task_id, is_material) VALUES (%s, %s)",
+                        (task_id, 1)
+                    )
             else:
                 if can_retry is not None:
                     await cursor.execute(
@@ -1304,12 +1327,60 @@ async def update_task_fields(
     finally:
         connection.close()
 
+async def _delete_task_file(task_id: int) -> None:
+    connection = await get_connection()
+    if connection is None:
+        return
+    try:
+        async with connection.cursor() as cursor:
+            await cursor.execute(
+                "SELECT file_path FROM task_attachments WHERE task_id = %s",
+                (task_id,)
+            )
+            attachment_paths = [row['file_path'] for row in await cursor.fetchall()]
+
+            await cursor.execute(
+                "SELECT file_path, user_id FROM student_attempts WHERE task_id = %s AND file_path IS NOT NULL",
+                (task_id,)
+            )
+            attempt_rows = await cursor.fetchall()
+            student_file_paths = [row['file_path'] for row in attempt_rows]
+            student_user_ids = set(row['user_id'] for row in attempt_rows)
+
+        for file_path in attachment_paths + student_file_paths:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                logging.error(f"Ошибка при удалении файла {file_path}: {e}")
+
+        try:
+            task_dir = f"static/uploads/tasks/{task_id}"
+            if os.path.exists(task_dir):
+                os.rmdir(task_dir)
+        except OSError:
+            pass
+
+        for uid in student_user_ids:
+            try:
+                answer_dir = f"static/uploads/student_answers/{uid}/{task_id}"
+                if os.path.exists(answer_dir):
+                    os.rmdir(answer_dir)
+            except OSError:
+                pass
+    except Exception as e:
+        logging.error(f"Ошибка при удалении файлов задания {task_id}: {e}")
+    finally:
+        connection.close()
+
+
 async def delete_task(task_id: int) -> bool:
     connection = await get_connection()
     if connection is None:
         return False
     try:
         async with connection.cursor() as cursor:
+            await _delete_task_file(task_id)
             await cursor.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
             await connection.commit()
             return True

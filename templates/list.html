@@ -32,7 +32,7 @@
                 {% if user and user.is_teacher and can_edit %}
                     <div class="pe-3 d-flex gap-1">
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
-                                onclick="openManageModal('/subjects/{{ url }}/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
+                                onclick="openManageModal('/{{ url }}/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
                             ⚙️
                         </button>
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"

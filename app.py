@@ -1,12 +1,15 @@
-
 from routes.title import title_route
 from routes.profile import profile_route
 from routes.auth import auth_route
 from routes.subjects import subjects_route
 
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from starlette.responses import JSONResponse
 import uvicorn
 
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="Exam.Teacher")
 
