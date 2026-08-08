@@ -1,0 +1,34 @@
+from pydantic import BaseModel, ConfigDict, EmailStr
+
+from src.schemas.common import BoolField
+
+
+class UserAuthorizationSchema(BaseModel):
+    email: EmailStr
+    password_hash: str
+
+
+class UserNameSchema(BaseModel):
+    surname: str
+    first_name: str
+    patronymic: str | None
+
+
+class UserRegistrationSchema(UserAuthorizationSchema, UserNameSchema):
+    repeat_password_hash: str
+    is_teacher: BoolField = False
+
+
+class UserBriefSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    surname: str
+    first_name: str
+    patronymic: str
+    email: str
+    is_teacher: BoolField = False
+
+
+class UserReadSchema(UserBriefSchema):
+    password_hash: str

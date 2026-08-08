@@ -6,16 +6,16 @@
     <div class="list-group mt-3">
         {% for item in items %}
 
-            <div id="item-wrapper-{{ item['id'] }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-0">
+            <div id="item-wrapper-{{ item.id }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-0">
 
-                <a href="/subjects/{{ item['id'] }}/" class="text-decoration-none text-dark p-3 flex-grow-1">
+                <a href="/subjects/{{ item.id }}/" class="text-decoration-none text-dark p-3 flex-grow-1">
                     <div class="d-flex w-100 justify-content-between">
 
-                        <h5 class="mb-1" id="item-name-text-{{ item['id'] }}">{{ item['name'] }}</h5>
+                        <h5 class="mb-1" id="item-name-text-{{ item.id }}">{{ item.name }}</h5>
 
-                        <span id="item-badge-container-{{ item['id'] }}">
-                            {% if item['can_edit'] %}
-                                {% if item['is_public'] == 0 %}
+                        <span id="item-badge-container-{{ item.id }}">
+                            {% if item.can_edit %}
+                                {% if item.is_public == 0 %}
                                     <span class="badge bg-warning text-dark">Приватно</span>
                                 {% else %}
                                     <span class="badge bg-success">Публично</span>
@@ -24,19 +24,19 @@
                         </span>
                     </div>
 
-                    <small class="text-muted d-block mt-1" id="item-desc-text-{{ item['id'] }}">
-                        {{ item.get('description', '') }}
+                    <small class="text-muted d-block mt-1" id="item-desc-text-{{ item.id }}">
+                        {{ item.description or '' }}
                     </small>
                 </a>
 
-                {% if user and user.is_teacher and item.get('can_edit') %}
+                {% if user and user.is_teacher and item.can_edit %}
                     <div class="pe-3 d-flex gap-1">
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
-                                onclick="openManageModal('/subjects/{{ item['id'] }}', '{{ item['name'] }}')" title="Управление">
+                                onclick="openManageModal('/subjects/{{ item.id }}', '{{ item.name }}')" title="Управление">
                             ⚙️
                         </button>
                         <button type="button" class="btn btn-outline-secondary border-0 btn-sm"
-                                data-bs-toggle="modal" data-bs-target="#editItemModal{{ item['id'] }}" title="Редактировать предмет">
+                                data-bs-toggle="modal" data-bs-target="#editItemModal{{ item.id }}" title="Редактировать предмет">
                             🖋️
                         </button>
                     </div>
@@ -44,38 +44,38 @@
 
             </div>
 
-            {% if user and user.is_teacher and item.get('can_edit') %}
-                <div class="modal fade" id="editItemModal{{ item['id'] }}" tabindex="-1" aria-hidden="true">
+            {% if user and user.is_teacher and item.can_edit %}
+                <div class="modal fade" id="editItemModal{{ item.id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
 
-                            <form onsubmit="submitItemEdit(event, {{ item['id'] }}, '/subjects/{{ item['id'] }}/edit/')">
+                            <form onsubmit="submitItemEdit(event, {{ item.id }}, '/subjects/{{ item.id }}/edit/')">
 
                                 <div class="modal-header bg-dark text-white">
-                                    <h5 class="modal-title">🖋️ Редактирование: {{ item['name'] }}</h5>
+                                    <h5 class="modal-title">🖋️ Редактирование: {{ item.name }}</h5>
                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                 </div>
 
                                 <div class="modal-body">
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Название предмета</label>
-                                        <input type="text" class="form-control" name="name" value="{{ item['name'] }}">
+                                        <input type="text" class="form-control" name="name" value="{{ item.name }}">
                                     </div>
 
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Описание предмета</label>
-                                        <textarea class="form-control" name="description" rows="3">{{ item.get('description', '') }}</textarea>
+                                        <textarea class="form-control" name="description" rows="3">{{ item.description or '' }}</textarea>
                                     </div>
 
                                     <div class="form-check form-switch mb-3">
-                                        <input class="form-check-input" type="checkbox" name="is_private" value="true" {% if item.get('is_public') == 0 %}checked{% endif %}>
+                                        <input class="form-check-input" type="checkbox" name="is_private" value="true" {% if item.is_public == 0 %}checked{% endif %}>
                                         <label class="form-check-label text-danger fw-bold">🔒 Сделать приватным? </label>
                                     </div>
                                 </div>
 
                                 <div class="modal-footer d-flex justify-content-between">
                                     <button type="button" class="btn btn-outline-danger"
-                                            onclick="submitItemDelete({{ item['id'] }}, '/subjects/{{ item['id'] }}/delete/')">
+                                            onclick="submitItemDelete({{ item.id }}, '/subjects/{{ item.id }}/delete/')">
                                         🗑️ Удалить
                                     </button>
 
