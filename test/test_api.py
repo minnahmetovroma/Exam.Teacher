@@ -125,6 +125,34 @@ class TestPublic:
         assert resp.status_code == 200
 
 
+class TestRegistrationSchema:
+    def _payload(self, email, password, repeat_password):
+        return {
+            'email': email,
+            'surname': 'Api',
+            'first_name': 'Schema',
+            'patronymic': 'S',
+            'password_hash': _sha256(f'{email}:{password}'),
+            'repeat_password_hash': _sha256(f'{email}:{repeat_password}'),
+            'is_teacher': 'no',
+        }
+
+    def test_passwords_match(self):
+        from src.schemas import UserRegistrationSchema
+        schema = UserRegistrationSchema.model_validate(
+            self._payload('schema.match@example.com', 'secret', 'secret')
+        )
+        assert schema.password_hash == schema.repeat_password_hash
+
+    def test_passwords_mismatch_raises(self):
+        import pydantic
+        from src.schemas import UserRegistrationSchema
+        with pytest.raises(pydantic.ValidationError):
+            UserRegistrationSchema.model_validate(
+                self._payload('schema.mismatch@example.com', 'secret', 'other')
+            )
+
+
 class TestAuth:
     def test_login_success_sets_cookie(self, _client):
         resp = _post_form(_client, '/login/', {

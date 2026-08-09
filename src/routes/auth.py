@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Request, Form, status
 from fastapi.responses import RedirectResponse
+from pydantic import ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from src import db
 from src.dependencies.templating import templates
+from src.schemas import UserRegistrationSchema
 
 auth_route = APIRouter()
 
@@ -52,11 +54,24 @@ async def register_post(request: Request):
     form = await request.form()
     data = dict(form)
 
-    if data['password'] != data['password_repeat']:
+    try:
+        UserRegistrationSchema.model_validate({
+            'email': data['email'],
+            'surname': data['surname'],
+            'first_name': data['name'],
+            'patronymic': data['patronymic'],
+            'password_hash': data['password'],
+            'repeat_password_hash': data['password_repeat'],
+            'is_teacher': data['is_teacher'],
+        })
+    except ValidationError as exc:
+        mismatch = any('Пароли не совпадают' in str(err['msg']) for err in exc.errors())
+        title = 'Пароли не совпадают' if mismatch else 'Некорректные данные при регистрации'
         return RedirectResponse(
-            url='/register/?title=Пароли не совпадают',
+            url=f'/register/?title={title}',
             status_code=status.HTTP_303_SEE_OTHER
         )
+
     if await db.is_in_users(data):
         return RedirectResponse(
             url='/register/?title=Такой пользователь уже создан',

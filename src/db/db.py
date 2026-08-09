@@ -4,12 +4,14 @@ from typing import Optional
 
 import json
 import os
+import ssl
+from pathlib import Path
 
 from dotenv import load_dotenv
 from aiomysql import connect, DictCursor
 from pydantic import TypeAdapter
 
-from src.config import UPLOADS_DIR
+from src.config import BASE_DIR, UPLOADS_DIR
 from src.schemas import (
     UserReadSchema, UserBriefSchema, SubjectReadSchema, SubjectStudentReadSchema,
     TopicReadSchema, TopicStudentReadSchema, AttachmentReadSchema,
@@ -20,10 +22,19 @@ load_dotenv()
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", "3306")),
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
     "db": os.getenv("DB_NAME"),
+    "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10")),
 }
+
+if os.getenv("DB_SSL", "0").lower() in ("1", "true", "yes", "on"):
+    ca_path = os.getenv("DB_SSL_CA")
+    if ca_path:
+        ca = Path(ca_path)
+        ca_path = str(ca if ca.is_absolute() else BASE_DIR / ca)
+    DB_CONFIG["ssl"] = ssl.create_default_context(cafile=ca_path or None)
 
 task_adapter = TypeAdapter(TaskReadSchema)
 

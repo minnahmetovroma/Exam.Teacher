@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import os
+import ssl
 
 import pytest
 from dotenv import load_dotenv
@@ -17,13 +18,17 @@ def _sha256(value: str) -> str:
 
 
 def _connect(db):
-    return connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        db=db,
-        cursorclass=DictCursor,
-    )
+    kwargs = {
+        "host": os.getenv("DB_HOST"),
+        "port": int(os.getenv("DB_PORT", "3306")),
+        "user": os.getenv("DB_USER"),
+        "password": os.getenv("DB_PASSWORD"),
+        "db": db,
+        "cursorclass": DictCursor,
+    }
+    if os.getenv("DB_SSL", "0").lower() in ("1", "true", "yes", "on"):
+        kwargs["ssl"] = ssl.create_default_context(cafile=os.getenv("DB_SSL_CA") or None)
+    return connect(**kwargs)
 
 
 async def _drop_and_create_database(conn):
@@ -36,23 +41,16 @@ async def _drop_and_create_database(conn):
     await conn.commit()
 
 
-async def _copy_schema(source_conn, target_conn):
-    source_cursor = await source_conn.cursor()
-    await source_cursor.execute("SHOW TABLES")
-    tables = [list(row.values())[0] for row in await source_cursor.fetchall()]
-    await source_cursor.close()
-
-    target_cursor = await target_conn.cursor()
-    await target_cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
-    for table in tables:
-        source_cursor = await source_conn.cursor()
-        await source_cursor.execute(f"SHOW CREATE TABLE `{table}`")
-        row = await source_cursor.fetchone()
-        await source_cursor.close()
-        await target_cursor.execute(row["Create Table"])
-    await target_cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
-    await target_cursor.close()
-    await target_conn.commit()
+async def _apply_schema_file(conn):
+    with open("schema.sql", encoding="utf-8") as f:
+        statements = f.read().split(";\n")
+    cursor = await conn.cursor()
+    for statement in statements:
+        statement = statement.strip()
+        if statement:
+            await cursor.execute(statement)
+    await cursor.close()
+    await conn.commit()
 
 
 async def _seed(conn):
@@ -93,21 +91,21 @@ async def _seed(conn):
 
 
 async def _setup():
-    source = await _connect(os.getenv("DB_NAME"))
+    conn = await _connect(None)
     try:
-        await _drop_and_create_database(source)
+        await _drop_and_create_database(conn)
         target = await _connect(TEST_DB_NAME)
         try:
-            await _copy_schema(source, target)
+            await _apply_schema_file(target)
             await _seed(target)
         finally:
             target.close()
     finally:
-        source.close()
+        conn.close()
 
 
 async def _teardown():
-    conn = await _connect(os.getenv("DB_NAME"))
+    conn = await _connect(None)
     try:
         cursor = await conn.cursor()
         await cursor.execute(f"DROP DATABASE IF EXISTS {TEST_DB_NAME}")
